@@ -4,7 +4,7 @@ const translations = {
     invitationCode:"کد دعوت",setupToken:"کلید راه‌اندازی مالک",inviteHint:"برای ساخت حساب به دعوت‌نامه معتبر نیاز داری.",setupHint:"راه‌اندازی اولیه: کلید امن مالک را وارد کن.",invitationInvalid:"کد دعوت معتبر نیست، منقضی شده یا قبلاً استفاده شده است.",setupInvalid:"کلید راه‌اندازی مالک نادرست است.",ownerSetupDisabled:"راه‌اندازی مالک روی سرور فعال نشده است.",invitationManagement:"مدیریت دعوت‌نامه‌ها",createInvitation:"ساخت دعوت‌نامه",invitationCreated:"کد دعوت (فقط همین بار نمایش داده می‌شود):",copyCode:"کپی کد",invitationActive:"فعال",invitationUsed:"استفاده‌شده",invitationExpired:"منقضی‌شده",invitationRevoked:"باطل‌شده",revokeInvitation:"باطل‌کردن",invitationCapacity:"ظرفیت باقی‌مانده برای دعوت‌نامه کافی نیست.",
     username:"نام کاربری",password:"رمز عبور",login:"ورود",register:"ساخت حساب",firstAccount:"اولین حسابی که ساخته شود، مالک اصلی خواهد بود.",
     community:"PRIVATE COMMUNITY",mainRoom:"گفت‌وگوی اصلی",logout:"خروج",messagePlaceholder:"پیامت را بنویس...",send:"ارسال",
-    mvpNotice:"پیام‌ها ذخیره می‌شوند و تماس گروهی در دسترس است.",callsTitle:"تماس گروهی",joinCall:"ورود به تماس",leaveCall:"خروج از تماس",micOn:"خاموش‌کردن میکروفون",micOff:"روشن‌کردن میکروفون",cameraOn:"خاموش‌کردن دوربین",cameraOff:"روشن‌کردن دوربین",callReady:"برای ورود به تماس گروهی دکمه شروع را بزن.",callConnected:"به تماس گروهی متصل شدی.",callFull:"ظرفیت تماس تکمیل است.",callAlready:"این حساب از قبل وارد تماس شده است.",callFailed:"اتصال تماس برقرار نشد.",mediaDenied:"دسترسی میکروفون یا دوربین داده نشد.",footer:"فضای خصوصی دوستان",
+    mvpNotice:"پیام‌ها ذخیره می‌شوند و تماس گروهی در دسترس است.",callsTitle:"تماس گروهی",joinCall:"ورود به تماس",leaveCall:"خروج از تماس",micOn:"خاموش‌کردن میکروفون",micOff:"روشن‌کردن میکروفون",cameraOn:"خاموش‌کردن دوربین",cameraOff:"روشن‌کردن دوربین",callReady:"برای ورود به تماس گروهی دکمه شروع را بزن.",callConnected:"به تماس گروهی متصل شدی.",callFull:"ظرفیت تماس تکمیل است.",callAlready:"این حساب از قبل وارد تماس شده است.",callFailed:"اتصال تماس برقرار نشد.",mediaDenied:"دسترسی میکروفون یا دوربین داده نشد.",hostBlocked:"هاست دسترسی این رسانه را موقتاً قطع کرده است.",hostMuteAudio:"قطع صدای کاربر",hostUnmuteAudio:"آزادکردن میکروفون",hostDisableVideo:"قطع تصویر کاربر",hostEnableVideo:"آزادکردن دوربین",footer:"فضای خصوصی دوستان",
     invalid:"نام کاربری یا رمز عبور معتبر نیست.",taken:"این نام کاربری قبلاً استفاده شده است.",limit:"ظرفیت ساخت حساب تکمیل شده است.",
     passwordRules:"رمز عبور باید حداقل ۸ نویسه باشد.",accountSettings:"تغییر اطلاعات حساب",changeType:"نوع تغییر",changeUsername:"نام کاربری",changePassword:"رمز عبور",currentPassword:"رمز عبور فعلی",newUsername:"نام کاربری جدید",newPassword:"رمز عبور جدید",sendRequest:"ارسال درخواست به هاست",pendingRequests:"درخواست‌های در انتظار تأیید",requestSent:"درخواست ارسال شد؛ منتظر تأیید هاست بمان.",requestPending:"یک درخواست در انتظار بررسی داری.",currentPasswordInvalid:"رمز عبور فعلی درست نیست.",sameUsername:"نام کاربری جدید باید با نام فعلی متفاوت باشد.",requestResultApproved:"هاست درخواستت را تأیید کرد.",requestResultRejected:"هاست درخواستت را رد کرد.",approve:"تأیید",reject:"رد",network:"ارتباط با سرور برقرار نشد.",usernameRules:"نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا _ باشد."
   },
@@ -13,7 +13,7 @@ const translations = {
     invitationCode:"Invitation code",setupToken:"Owner setup key",inviteHint:"A valid invitation is required to create an account.",setupHint:"Initial setup: enter the secure owner key.",invitationInvalid:"The invitation is invalid, expired, or already used.",setupInvalid:"The owner setup key is incorrect.",ownerSetupDisabled:"Owner setup is not enabled on the server.",invitationManagement:"Invitation management",createInvitation:"Create invitation",invitationCreated:"Invitation code (shown only once):",copyCode:"Copy code",invitationActive:"Active",invitationUsed:"Used",invitationExpired:"Expired",invitationRevoked:"Revoked",revokeInvitation:"Revoke",invitationCapacity:"There is not enough remaining account capacity for another invitation.",
     username:"Username",password:"Password",login:"Sign in",register:"Create account",firstAccount:"The first account created becomes the owner.",
     community:"PRIVATE COMMUNITY",mainRoom:"Main chat",logout:"Log out",messagePlaceholder:"Write a message...",send:"Send",
-    mvpNotice:"Messages are saved and group calling is available.",callsTitle:"Group call",joinCall:"Join call",leaveCall:"Leave call",micOn:"Turn microphone off",micOff:"Turn microphone on",cameraOn:"Turn camera off",cameraOff:"Turn camera on",callReady:"Press Join to enter the group call.",callConnected:"You joined the group call.",callFull:"The call is full.",callAlready:"This account is already in the call.",callFailed:"The call could not connect.",mediaDenied:"Microphone or camera permission was denied.",footer:"A private space for friends",
+    mvpNotice:"Messages are saved and group calling is available.",callsTitle:"Group call",joinCall:"Join call",leaveCall:"Leave call",micOn:"Turn microphone off",micOff:"Turn microphone on",cameraOn:"Turn camera off",cameraOff:"Turn camera on",callReady:"Press Join to enter the group call.",callConnected:"You joined the group call.",callFull:"The call is full.",callAlready:"This account is already in the call.",callFailed:"The call could not connect.",mediaDenied:"Microphone or camera permission was denied.",hostBlocked:"The host has temporarily disabled this media.",hostMuteAudio:"Mute user microphone",hostUnmuteAudio:"Allow microphone",hostDisableVideo:"Disable user camera",hostEnableVideo:"Allow camera",footer:"A private space for friends",
     invalid:"Enter a valid username and password.",taken:"That username is already taken.",limit:"The account limit has been reached.",
     passwordRules:"Password must be at least 8 characters.",accountSettings:"Account settings",changeType:"Change type",changeUsername:"Username",changePassword:"Password",currentPassword:"Current password",newUsername:"New username",newPassword:"New password",sendRequest:"Send request to host",pendingRequests:"Pending approval requests",requestSent:"Request sent. Wait for the host's approval.",requestPending:"You already have a pending request.",currentPasswordInvalid:"Your current password is incorrect.",sameUsername:"Choose a username different from your current one.",requestResultApproved:"The host approved your request.",requestResultRejected:"The host rejected your request.",approve:"Approve",reject:"Reject",network:"Could not connect to the server.",usernameRules:"Username must be 3–20 characters: English letters, numbers or _."
   }
@@ -25,7 +25,7 @@ let ownerSetupMode = false;
 let inCall = false;
 let localStream = null;
 let audioEnabled = false;
-let videoEnabled = false;
+let videoEnabled = false;\nlet audioBlockedByHost = false;\nlet videoBlockedByHost = false;
 const peerConnections = new Map();
 const remoteTiles = new Map();
 const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -302,7 +302,24 @@ function updateCallControls() {
   $("audioButton").textContent = callText(audioEnabled ? "micOn" : "micOff");
   $("videoButton").textContent = callText(videoEnabled ? "cameraOn" : "cameraOff");
 }
-function ensureTile(userId, username) {
+function renderHostControls(tile, userId) {
+  if (currentUser?.role !== "owner") return;
+  if (!tile.hostControls) {
+    tile.hostControls = document.createElement("div");
+    tile.hostControls.className = "host-media-controls";
+    tile.audioControl = document.createElement("button");
+    tile.videoControl = document.createElement("button");
+    tile.audioControl.type = tile.videoControl.type = "button";
+    tile.audioControl.className = tile.videoControl.className = "quiet-button";
+    tile.hostControls.append(tile.audioControl, tile.videoControl);
+    tile.root.append(tile.hostControls);
+    tile.audioControl.addEventListener("click", () => socket.emit("call:moderate-media", { targetUserId: userId, kind: "audio", blocked: !tile.audioBlockedByHost }));
+    tile.videoControl.addEventListener("click", () => socket.emit("call:moderate-media", { targetUserId: userId, kind: "video", blocked: !tile.videoBlockedByHost }));
+  }
+  tile.audioControl.textContent = callText(tile.audioBlockedByHost ? "hostUnmuteAudio" : "hostMuteAudio");
+  tile.videoControl.textContent = callText(tile.videoBlockedByHost ? "hostEnableVideo" : "hostDisableVideo");
+}
+function ensureTile(userId, username, participant = {}) {
   let tile = remoteTiles.get(userId);
   if (tile) return tile;
   const root = document.createElement("div"); root.className = "video-tile";
@@ -327,7 +344,7 @@ function ensurePeer(participant) {
   const state = { pc, makingOffer: false, ignoreOffer: false, polite: currentUser.id > peerId };
   peerConnections.set(peerId, state);
   if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-  const tile = ensureTile(peerId, participant.username);
+  const tile = ensureTile(peerId, participant.username, participant);
   pc.ontrack = (event) => {
     const [stream] = event.streams;
     if (stream) {
@@ -392,7 +409,7 @@ async function leaveCall() {
   peerConnections.forEach((state) => state.pc.close());
   peerConnections.clear(); remoteTiles.forEach(tile => tile.root.remove()); remoteTiles.clear();
   if (localStream) localStream.getTracks().forEach(track => track.stop());
-  localStream = null; audioEnabled = false; videoEnabled = false; inCall = false;
+  localStream = null; audioEnabled = false; videoEnabled = false; audioBlockedByHost = false; videoBlockedByHost = false; inCall = false;
   $("callStatus").textContent = callText("callReady");
   updateCallControls();
 }
