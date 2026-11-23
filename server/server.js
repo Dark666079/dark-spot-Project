@@ -17,7 +17,9 @@ const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-this-secre
 
 const dataDir = path.join(__dirname, "..", "data");
 fs.mkdirSync(dataDir, { recursive: true });
-const db = new Database(path.join(dataDir, "dark-spot.sqlite"));
+const dbPath = process.env.DB_PATH || path.join(dataDir, "dark-spot.sqlite");
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
@@ -210,7 +212,9 @@ io.on("connection", (socket) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Dark-Spot server listening on http://localhost:${PORT}`);
+  const address = server.address();
+  const actualPort = address && typeof address === "object" ? address.port : PORT;
+  console.log(`Dark-Spot server listening on http://localhost:${actualPort}`);
   console.log(`Account limit: ${MAX_USERS}; call participant limit: ${MAX_CALL_PARTICIPANTS}`);
   if (SESSION_SECRET.startsWith("dev-only")) {
     console.warn("WARNING: Set SESSION_SECRET before exposing this server to the internet.");
