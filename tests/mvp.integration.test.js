@@ -447,6 +447,58 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   const messages = (await messagesResponse.json()).messages;
   assert.ok(messages.some((message) => message.body === "dark-spot integration test message"));
 
+  const memberMessageReceived = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Member chat message was not broadcast")), 5000);
+    socket.once("chat:message", (message) => { clearTimeout(timer); resolve(message); });
+  });
+  memberSocket.emit("chat:send", "message authored by member");
+  const memberMessage = await memberMessageReceived;
+  assert.equal(memberMessage.userId, member.id);
+
+  const memberEditsOwnMessage = await request("/api/messages/" + memberMessage.id, {
+    method: "PATCH", headers: { cookie: refreshedMemberCookie, "content-type": "application/json" },
+    body: JSON.stringify({ body: "member edited their own message" })
+  });
+  assert.equal(memberEditsOwnMessage.status, 200);
+  assert.equal((await memberEditsOwnMessage.json()).message.body, "member edited their own message");
+
+  const ownerCannotEditMemberMessage = await request("/api/messages/" + memberMessage.id, {
+    method: "PATCH", headers: { cookie: ownerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ body: "unauthorized edit" })
+  });
+  assert.equal(ownerCannotEditMemberMessage.status, 404);
+
+  const memberCannotDeleteMessage = await request("/api/messages/" + memberMessage.id, {
+    method: "DELETE", headers: { cookie: refreshedMemberCookie }
+  });
+  assert.equal(memberCannotDeleteMessage.status, 403);
+
+  const deleteBroadcast = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Message deletion was not broadcast")), 5000);
+    socket.once("chat:deleted", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  const adminDelete = await request("/api/messages/" + memberMessage.id, {
+    method: "DELETE", headers: { cookie: adminCookie }
+  });
+  assert.equal(adminDelete.status, 200);
+  assert.equal((await deleteBroadcast).id, memberMessage.id);
+
+  const editBroadcast = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Message edit was not broadcast")), 5000);
+    socket.once("chat:updated", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  const ownerEdit = await request("/api/messages/" + received.id, {
+    method: "PATCH", headers: { cookie: ownerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ body: "owner edited their own message" })
+  });
+  assert.equal(ownerEdit.status, 200);
+  assert.equal((await editBroadcast).body, "owner edited their own message");
+
+  const ownerDelete = await request("/api/messages/" + received.id, {
+    method: "DELETE", headers: { cookie: ownerCookie }
+  });
+  assert.equal(ownerDelete.status, 200);
+
   const logout = await request("/api/logout", { method: "POST", headers: { cookie: ownerCookie } });
   assert.equal(logout.status, 200);
   const afterLogout = await request("/api/me", { headers: { cookie: ownerCookie } });
