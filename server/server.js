@@ -1,70 +1,22 @@
-const path = require("node:path");
 const crypto = require("node:crypto");
-const fs = require("node:fs");
 const http = require("node:http");
 const express = require("express");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
-const Database = require("better-sqlite3");
 const helmet = require("helmet");
 const { rateLimit } = require("express-rate-limit");
 const { Server } = require("socket.io");
 
-const PORT = Number(process.env.PORT || 3000);
-const HOST = process.env.HOST || "0.0.0.0";
-const MAX_USERS = 6;
-const MAX_CALL_PARTICIPANTS = 6;
-const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-this-secret-before-sharing";
-const OWNER_SETUP_TOKEN = process.env.OWNER_SETUP_TOKEN || "";
-
-const dataDir = path.join(__dirname, "..", "data");
-fs.mkdirSync(dataDir, { recursive: true });
-const dbPath = process.env.DB_PATH || path.join(dataDir, "dark-spot.sqlite");
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('owner','admin','member')),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    username TEXT NOT NULL,
-    body TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE TABLE IF NOT EXISTS account_change_requests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    change_type TEXT NOT NULL CHECK(change_type IN ('username','password')),
-    proposed_username TEXT,
-    proposed_password_hash TEXT,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE UNIQUE INDEX IF NOT EXISTS one_pending_account_change_per_user
-    ON account_change_requests(user_id) WHERE status = 'pending';
-  CREATE UNIQUE INDEX IF NOT EXISTS one_pending_username_change
-    ON account_change_requests(proposed_username COLLATE NOCASE)
-    WHERE status = 'pending' AND change_type = 'username' AND proposed_username IS NOT NULL;
-  CREATE TABLE IF NOT EXISTS invitations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    token_hash TEXT NOT NULL UNIQUE,
-    created_by INTEGER NOT NULL REFERENCES users(id),
-    created_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL,
-    used_at TEXT,
-    used_by INTEGER REFERENCES users(id),
-    revoked_at TEXT
-  );
-`);
+const {
+  PORT,
+  HOST,
+  MAX_USERS,
+  MAX_CALL_PARTICIPANTS,
+  SESSION_SECRET,
+  OWNER_SETUP_TOKEN,
+  CLIENT_DIR
+} = require("./config");
+const db = require("./db");
 
 const app = express();
 const server = http.createServer(app);
@@ -86,7 +38,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "20kb" }));
 app.use(sessionMiddleware);
 app.use("/api", rateLimit({ windowMs: 15 * 60 * 1000, limit: 300 }));
-app.use(express.static(path.join(__dirname, "..", "client")));
+app.use(express.static(CLIENT_DIR));
 
 io.engine.use(sessionMiddleware);
 io.use((socket, next) => {
