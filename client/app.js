@@ -5,7 +5,7 @@ const translations = {
     community:"PRIVATE COMMUNITY",mainRoom:"گفت‌وگوی اصلی",logout:"خروج",messagePlaceholder:"پیامت را بنویس...",send:"ارسال",
     mvpNotice:"نسخه اولیه: پیام‌ها ذخیره می‌شوند؛ تماس صوتی و تصویری در مرحله بعد اضافه می‌شود.",footer:"فضای خصوصی دوستان",
     invalid:"نام کاربری یا رمز عبور معتبر نیست.",taken:"این نام کاربری قبلاً استفاده شده است.",limit:"ظرفیت ساخت حساب تکمیل شده است.",
-    passwordRules:"رمز عبور باید حداقل ۸ نویسه باشد.",network:"ارتباط با سرور برقرار نشد.",usernameRules:"نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا _ باشد."
+    passwordRules:"رمز عبور باید حداقل ۸ نویسه باشد.",accountSettings:"تغییر اطلاعات حساب",changeType:"نوع تغییر",changeUsername:"نام کاربری",changePassword:"رمز عبور",currentPassword:"رمز عبور فعلی",newUsername:"نام کاربری جدید",newPassword:"رمز عبور جدید",sendRequest:"ارسال درخواست به هاست",pendingRequests:"درخواست‌های در انتظار تأیید",requestSent:"درخواست ارسال شد؛ منتظر تأیید هاست بمان.",requestPending:"یک درخواست در انتظار بررسی داری.",requestResultApproved:"هاست درخواستت را تأیید کرد.",requestResultRejected:"هاست درخواستت را رد کرد.",approve:"تأیید",reject:"رد",network:"ارتباط با سرور برقرار نشد.",usernameRules:"نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا _ باشد."
   },
   en: {
     privateSpace:"PRIVATE SPACE",welcome:"Welcome to your private space",authHint:"Enter your details to sign in or create an account.",
@@ -13,7 +13,7 @@ const translations = {
     community:"PRIVATE COMMUNITY",mainRoom:"Main chat",logout:"Log out",messagePlaceholder:"Write a message...",send:"Send",
     mvpNotice:"First version: messages are saved. Voice and video calling will be added in the next stage.",footer:"A private space for friends",
     invalid:"Enter a valid username and password.",taken:"That username is already taken.",limit:"The account limit has been reached.",
-    passwordRules:"Password must be at least 8 characters.",network:"Could not connect to the server.",usernameRules:"Username must be 3–20 characters: English letters, numbers or _."
+    passwordRules:"Password must be at least 8 characters.",accountSettings:"Account settings",changeType:"Change type",changeUsername:"Username",changePassword:"Password",currentPassword:"Current password",newUsername:"New username",newPassword:"New password",sendRequest:"Send request to host",pendingRequests:"Pending approval requests",requestSent:"Request sent. Wait for the host's approval.",requestPending:"You already have a pending request.",requestResultApproved:"The host approved your request.",requestResultRejected:"The host rejected your request.",approve:"Approve",reject:"Reject",network:"Could not connect to the server.",usernameRules:"Username must be 3–20 characters: English letters, numbers or _."
   }
 };
 let language = "fa";
@@ -56,6 +56,8 @@ function showChat(user) {
   $("authPanel").hidden = true;
   $("chatPanel").hidden = false;
   $("currentUser").textContent = user.username + " · " + user.role;
+  $("ownerRequestsPanel").hidden = user.role !== "owner";
+  if (user.role === "owner") loadOwnerRequests();
   loadMessages();
   connectSocket();
 }
@@ -90,6 +92,8 @@ function connectSocket() {
   if (socket) socket.disconnect();
   socket = io();
   socket.on("chat:message", addMessage);
+  socket.on("account-change:request", loadOwnerRequests);
+  socket.on("account-change:result", (r) => { $("changeStatus").textContent = translations[language][r.decision === "approve" ? "requestResultApproved" : "requestResultRejected"]; });
   socket.on("connect_error", (error) => {
     if (error.message === "AUTH_REQUIRED") socket.disconnect();
   });
@@ -121,6 +125,48 @@ $("logoutButton").addEventListener("click", async () => {
   $("authPanel").hidden = false;
   $("password").value = "";
 });
+
+$("changeType").addEventListener("change", () => {
+  const isUsername = $("changeType").value === "username";
+  $("newUsername").disabled = !isUsername; $("newUsername").required = isUsername;
+  $("newPassword").disabled = isUsername; $("newPassword").required = !isUsername;
+});
+$("changeType").dispatchEvent(new Event("change"));
+$("accountChangeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const type = $("changeType").value;
+  const payload = { type, currentPassword:$("currentPassword").value };
+  if (type === "username") payload.newUsername = $("newUsername").value.trim();
+  else payload.newPassword = $("newPassword").value;
+  try {
+    await api("/api/account-change-requests", { method:"POST", body:JSON.stringify(payload) });
+    $("changeStatus").textContent = translations[language].requestSent;
+    $("accountChangeForm").reset(); $("changeType").dispatchEvent(new Event("change"));
+  } catch (error) {
+    $("changeStatus").textContent = error.message === "REQUEST_ALREADY_PENDING" ? translations[language].requestPending : errorText(error.message);
+  }
+});
+async function loadOwnerRequests() {
+  try {
+    const { requests } = await api("/api/account-change-requests");
+    const root = $("ownerRequests"); root.replaceChildren();
+    requests.forEach((r) => {
+      const item = document.createElement("div"); item.className = "request-item";
+      const label = document.createElement("span");
+      label.textContent = r.username + " · " + (r.type === "username" ? "Username → " + r.proposedUsername : "Password change");
+      const yes = document.createElement("button"); yes.className = "primary"; yes.textContent = translations[language].approve;
+      yes.addEventListener("click", () => decideRequest(r.id, "approve"));
+      const no = document.createElement("button"); no.className = "quiet-button"; no.textContent = translations[language].reject;
+      no.addEventListener("click", () => decideRequest(r.id, "reject"));
+      item.append(label, yes, no); root.append(item);
+    });
+    if (!requests.length) root.textContent = "—";
+  } catch (e) { console.error(e); }
+}
+async function decideRequest(id, decision) {
+  try { await api("/api/account-change-requests/" + id, { method:"PATCH", body:JSON.stringify({ decision }) }); await loadOwnerRequests(); }
+  catch (e) { console.error(e); }
+}
 $("messageForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const input = $("messageInput");
