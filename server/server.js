@@ -379,10 +379,8 @@ function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
   io.close(() => {
-    server.close(() => {
-      db.close();
-      process.exit(0);
-    });
+    db.close();
+    process.exit(0);
   });
   setTimeout(() => process.exit(1), 5000).unref();
 }
