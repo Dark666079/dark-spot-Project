@@ -11,7 +11,8 @@ Private messaging and video calling platform for a small group of friends.
 - Maximum of 6 accounts.
 - Owner can promote members to admin; owner role cannot be reassigned through the member-role endpoint.
 - Realtime group chat with messages stored in SQLite.
-- Maximum call capacity is reserved at 6 participants; audio/video calling is not implemented yet.
+- Group WebRTC audio/video calls for up to 6 participants, with independent microphone and camera controls for every participant, including the owner.
+- Call signaling is authenticated and relays peer offers, answers, and ICE candidates through Socket.IO. Media streams are peer-to-peer; the server does not record audio or video.
 
 ## Requirements
 
@@ -55,3 +56,4 @@ The target is to run the server on the owner's computer. Friends will connect th
 3. Add WebRTC audio/video rooms for up to 6 people.
 4. Add public HTTPS tunnel deployment and production session handling.
 5. Add optional games/entertainment after core chat and calls are stable.
+\n\n## Group calls\n\nCalls use a peer-to-peer WebRTC mesh with a maximum of 6 participants. Each participant can independently enable or disable their own microphone and camera; the owner has the same controls as everyone else. The current ICE configuration uses a public STUN server only. Some network/NAT combinations will not establish a direct connection without a TURN relay, so calls must be tested over HTTPS on the actual networks before being considered production-ready. Camera and microphone access require a secure context (HTTPS, or localhost during local development).\n
