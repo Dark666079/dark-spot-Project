@@ -5,7 +5,7 @@ const translations = {
     community:"PRIVATE COMMUNITY",mainRoom:"گفت‌وگوی اصلی",logout:"خروج",messagePlaceholder:"پیامت را بنویس...",send:"ارسال",
     mvpNotice:"نسخه اولیه: پیام‌ها ذخیره می‌شوند؛ تماس صوتی و تصویری در مرحله بعد اضافه می‌شود.",footer:"فضای خصوصی دوستان",
     invalid:"نام کاربری یا رمز عبور معتبر نیست.",taken:"این نام کاربری قبلاً استفاده شده است.",limit:"ظرفیت ساخت حساب تکمیل شده است.",
-    passwordRules:"رمز عبور باید حداقل ۸ نویسه باشد.",accountSettings:"تغییر اطلاعات حساب",changeType:"نوع تغییر",changeUsername:"نام کاربری",changePassword:"رمز عبور",currentPassword:"رمز عبور فعلی",newUsername:"نام کاربری جدید",newPassword:"رمز عبور جدید",sendRequest:"ارسال درخواست به هاست",pendingRequests:"درخواست‌های در انتظار تأیید",requestSent:"درخواست ارسال شد؛ منتظر تأیید هاست بمان.",requestPending:"یک درخواست در انتظار بررسی داری.",requestResultApproved:"هاست درخواستت را تأیید کرد.",requestResultRejected:"هاست درخواستت را رد کرد.",approve:"تأیید",reject:"رد",network:"ارتباط با سرور برقرار نشد.",usernameRules:"نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا _ باشد."
+    passwordRules:"رمز عبور باید حداقل ۸ نویسه باشد.",accountSettings:"تغییر اطلاعات حساب",changeType:"نوع تغییر",changeUsername:"نام کاربری",changePassword:"رمز عبور",currentPassword:"رمز عبور فعلی",newUsername:"نام کاربری جدید",newPassword:"رمز عبور جدید",sendRequest:"ارسال درخواست به هاست",pendingRequests:"درخواست‌های در انتظار تأیید",requestSent:"درخواست ارسال شد؛ منتظر تأیید هاست بمان.",requestPending:"یک درخواست در انتظار بررسی داری.",currentPasswordInvalid:"رمز عبور فعلی درست نیست.",sameUsername:"نام کاربری جدید باید با نام فعلی متفاوت باشد.",requestResultApproved:"هاست درخواستت را تأیید کرد.",requestResultRejected:"هاست درخواستت را رد کرد.",approve:"تأیید",reject:"رد",network:"ارتباط با سرور برقرار نشد.",usernameRules:"نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا _ باشد."
   },
   en: {
     privateSpace:"PRIVATE SPACE",welcome:"Welcome to your private space",authHint:"Enter your details to sign in or create an account.",
@@ -13,7 +13,7 @@ const translations = {
     community:"PRIVATE COMMUNITY",mainRoom:"Main chat",logout:"Log out",messagePlaceholder:"Write a message...",send:"Send",
     mvpNotice:"First version: messages are saved. Voice and video calling will be added in the next stage.",footer:"A private space for friends",
     invalid:"Enter a valid username and password.",taken:"That username is already taken.",limit:"The account limit has been reached.",
-    passwordRules:"Password must be at least 8 characters.",accountSettings:"Account settings",changeType:"Change type",changeUsername:"Username",changePassword:"Password",currentPassword:"Current password",newUsername:"New username",newPassword:"New password",sendRequest:"Send request to host",pendingRequests:"Pending approval requests",requestSent:"Request sent. Wait for the host's approval.",requestPending:"You already have a pending request.",requestResultApproved:"The host approved your request.",requestResultRejected:"The host rejected your request.",approve:"Approve",reject:"Reject",network:"Could not connect to the server.",usernameRules:"Username must be 3–20 characters: English letters, numbers or _."
+    passwordRules:"Password must be at least 8 characters.",accountSettings:"Account settings",changeType:"Change type",changeUsername:"Username",changePassword:"Password",currentPassword:"Current password",newUsername:"New username",newPassword:"New password",sendRequest:"Send request to host",pendingRequests:"Pending approval requests",requestSent:"Request sent. Wait for the host's approval.",requestPending:"You already have a pending request.",currentPasswordInvalid:"Your current password is incorrect.",sameUsername:"Choose a username different from your current one.",requestResultApproved:"The host approved your request.",requestResultRejected:"The host rejected your request.",approve:"Approve",reject:"Reject",network:"Could not connect to the server.",usernameRules:"Username must be 3–20 characters: English letters, numbers or _."
   }
 };
 let language = "fa";
@@ -36,7 +36,7 @@ function setLanguage(next) {
 }
 
 function errorText(code) {
-  const map = { INVALID_CREDENTIALS:"invalid", USERNAME_TAKEN:"taken", USER_LIMIT:"limit", PASSWORD_RULES:"passwordRules", USERNAME_RULES:"usernameRules" };
+  const map = { INVALID_CREDENTIALS:"invalid", USERNAME_TAKEN:"taken", USER_LIMIT:"limit", PASSWORD_RULES:"passwordRules", USERNAME_RULES:"usernameRules", CURRENT_PASSWORD_INVALID:"currentPasswordInvalid", REQUEST_ALREADY_PENDING:"requestPending", SAME_USERNAME:"sameUsername" };
   return translations[language][map[code] || "network"];
 }
 
@@ -93,7 +93,20 @@ function connectSocket() {
   socket = io();
   socket.on("chat:message", addMessage);
   socket.on("account-change:request", loadOwnerRequests);
-  socket.on("account-change:result", (r) => { $("changeStatus").textContent = translations[language][r.decision === "approve" ? "requestResultApproved" : "requestResultRejected"]; });
+  socket.on("account-change:result", async (r) => {
+    $("changeStatus").textContent = translations[language][r.decision === "approve" ? "requestResultApproved" : "requestResultRejected"];
+    if (r.decision === "approve" && r.type === "username") {
+      try {
+        const { user } = await api("/api/me");
+        currentUser = user;
+        $("currentUser").textContent = user.username + " · " + user.role;
+        if (socket) { socket.disconnect(); connectSocket(); }
+      } catch (error) { console.error(error); }
+    }
+    $("currentPassword").value = "";
+    $("newPassword").value = "";
+    $("newUsername").value = "";
+  });
   socket.on("connect_error", (error) => {
     if (error.message === "AUTH_REQUIRED") socket.disconnect();
   });
