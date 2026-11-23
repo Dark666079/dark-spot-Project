@@ -7,7 +7,9 @@ function createCallSignaling({ io, db, maxParticipants }) {
       username: entry.username,
       role: entry.role,
       audioEnabled: entry.audioEnabled,
-      videoEnabled: entry.videoEnabled
+      videoEnabled: entry.videoEnabled,
+      audioBlockedByHost: entry.audioBlockedByHost,
+      videoBlockedByHost: entry.videoBlockedByHost
     };
   }
 
@@ -51,7 +53,9 @@ function createCallSignaling({ io, db, maxParticipants }) {
         role: current.role,
         socketId: socket.id,
         audioEnabled: false,
-        videoEnabled: false
+        videoEnabled: false,
+        audioBlockedByHost: false,
+        videoBlockedByHost: false
       };
       participants.set(current.id, participant);
       socket.data.callUserId = current.id;
@@ -66,9 +70,36 @@ function createCallSignaling({ io, db, maxParticipants }) {
       const userId = socket.data.callUserId;
       const participant = participants.get(userId);
       if (!participant || participant.socketId !== socket.id) return;
-      participant.audioEnabled = state.audioEnabled === true;
-      participant.videoEnabled = state.videoEnabled === true;
+      participant.audioEnabled = !participant.audioBlockedByHost && state.audioEnabled === true;
+      participant.videoEnabled = !participant.videoBlockedByHost && state.videoEnabled === true;
       io.to("call-room").emit("call:media-state", { userId, audioEnabled: participant.audioEnabled, videoEnabled: participant.videoEnabled });
+    });
+
+    socket.on("call:moderate-media", (payload = {}) => {
+      const ownerSession = socket.request.session?.user;
+      if (!ownerSession || !socket.data.callUserId) return;
+      const owner = db.prepare("SELECT role, auth_version FROM users WHERE id = ?").get(ownerSession.id);
+      if (!owner || owner.role !== "owner" || owner.auth_version !== ownerSession.authVersion) {
+        socket.emit("call:error", { error: "OWNER_REQUIRED" });
+        return;
+      }
+      const targetUserId = Number(payload.targetUserId);
+      const kind = payload.kind;
+      if (!Number.isSafeInteger(targetUserId) || !["audio", "video"].includes(kind) || typeof payload.blocked !== "boolean") return;
+      const target = participants.get(targetUserId);
+      if (!target || targetUserId === ownerSession.id) return;
+      const field = kind === "audio" ? "audioBlockedByHost" : "videoBlockedByHost";
+      const enabledField = kind === "audio" ? "audioEnabled" : "videoEnabled";
+      target[field] = payload.blocked;
+      if (payload.blocked) target[enabledField] = false;
+      io.to(target.socketId).emit("call:moderation", { kind, blocked: payload.blocked });
+      io.to("call-room").emit("call:media-state", {
+        userId: targetUserId,
+        audioEnabled: target.audioEnabled,
+        videoEnabled: target.videoEnabled,
+        audioBlockedByHost: target.audioBlockedByHost,
+        videoBlockedByHost: target.videoBlockedByHost
+      });
     });
 
     socket.on("call:signal", (payload = {}) => {
