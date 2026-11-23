@@ -36,6 +36,7 @@ function setLanguage(next) {
     node.placeholder = translations[next][node.dataset.i18nPlaceholder];
   });
   $("languageButton").textContent = next === "fa" ? "English" : "فارسی";
+  if ($("registrationHint")) $("registrationHint").textContent = translations[next][ownerSetupMode ? "setupHint" : "inviteHint"];
 }
 
 function errorText(code) {
@@ -146,8 +147,8 @@ async function configureRegistration() {
     $("setupField").hidden = !ownerSetupMode;
     $("invitationField").hidden = ownerSetupMode;
     $("registrationHint").textContent = translations[language][ownerSetupMode ? "setupHint" : "inviteHint"];
+    $("registerButton").disabled = ownerSetupMode && !status.ownerSetupAvailable;
     if (ownerSetupMode && !status.ownerSetupAvailable) {
-      $("registerButton").disabled = true;
       $("authError").textContent = translations[language].ownerSetupDisabled;
     }
   } catch (error) {
