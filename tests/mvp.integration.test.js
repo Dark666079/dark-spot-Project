@@ -1,0 +1,162 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { spawn } = require("node:child_process");
+const { once } = require("node:events");
+const fs = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
+const net = require("node:net");
+const { io: createSocket } = require("socket.io-client");
+
+async function getFreePort() {
+  const listener = net.createServer();
+  listener.listen(0, "127.0.0.1");
+  await once(listener, "listening");
+  const port = listener.address().port;
+  await new Promise((resolve, reject) => listener.close((error) => error ? reject(error) : resolve()));
+  return port;
+}
+
+function waitForServer(child) {
+  return new Promise((resolve, reject) => {
+    let output = "";
+    const timer = setTimeout(() => reject(new Error("Server did not start in time. Output: " + output)), 15000);
+    const onData = (chunk) => {
+      output += chunk.toString();
+      const match = output.match(/listening on http:\/\/localhost:(\d+)/);
+      if (match) {
+        clearTimeout(timer);
+        child.stdout.off("data", onData);
+        resolve(Number(match[1]));
+      }
+    };
+    child.stdout.on("data", onData);
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      reject(new Error("Server exited before becoming ready. Code: " + code + ". Output: " + output));
+    });
+  });
+}
+
+test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t) => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "dark-spot-test-"));
+  const port = await getFreePort();
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "server", "server.js")], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      PORT: String(port),
+      HOST: "127.0.0.1",
+      DB_PATH: path.join(tempDir, "test.sqlite"),
+      SESSION_SECRET: "test-only-session-secret-with-enough-length",
+      NODE_ENV: "test"
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  let socket;
+  t.after(async () => {
+    if (socket) socket.disconnect();
+    child.kill("SIGTERM");
+    await new Promise((resolve) => {
+      if (child.exitCode !== null) return resolve();
+      child.once("exit", resolve);
+      setTimeout(resolve, 2000);
+    });
+    await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  const actualPort = await waitForServer(child);
+  const base = "http://127.0.0.1:" + actualPort;
+  const request = (url, options = {}) => fetch(base + url, options);
+  const cookieFrom = (response) => {
+    const value = response.headers.get("set-cookie");
+    assert.ok(value, "response should set a session cookie");
+    return value.split(";")[0];
+  };
+
+  const statusResponse = await request("/api/status");
+  assert.equal(statusResponse.status, 200);
+  const status = await statusResponse.json();
+  assert.equal(status.maxUsers, 6);
+  assert.equal(status.maxCallParticipants, 6);
+
+  const ownerResponse = await request("/api/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "owner_test", password: "owner-password-123" })
+  });
+  assert.equal(ownerResponse.status, 201);
+  const ownerCookie = cookieFrom(ownerResponse);
+  const owner = (await ownerResponse.json()).user;
+  assert.equal(owner.role, "owner");
+
+  const meResponse = await request("/api/me", { headers: { cookie: ownerCookie } });
+  assert.equal(meResponse.status, 200);
+  assert.equal((await meResponse.json()).user.username, "owner_test");
+
+  const memberResponse = await request("/api/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "member_test", password: "member-password-123" })
+  });
+  assert.equal(memberResponse.status, 201);
+  const memberCookie = cookieFrom(memberResponse);
+  const member = (await memberResponse.json()).user;
+  assert.equal(member.role, "member");
+
+  const forbiddenPromotion = await request("/api/users/" + member.id + "/role", {
+    method: "PATCH",
+    headers: { cookie: memberCookie, "content-type": "application/json" },
+    body: JSON.stringify({ role: "admin" })
+  });
+  assert.equal(forbiddenPromotion.status, 403);
+
+  const promotion = await request("/api/users/" + member.id + "/role", {
+    method: "PATCH",
+    headers: { cookie: ownerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ role: "admin" })
+  });
+  assert.equal(promotion.status, 200);
+
+  const usersResponse = await request("/api/users", { headers: { cookie: ownerCookie } });
+  assert.equal(usersResponse.status, 200);
+  const users = (await usersResponse.json()).users;
+  assert.equal(users.find((user) => user.id === member.id).role, "admin");
+
+  socket = createSocket(base, {
+    extraHeaders: { Cookie: ownerCookie },
+    timeout: 5000,
+    reconnection: false
+  });
+  await new Promise((resolve, reject) => {
+    socket.once("connect", resolve);
+    socket.once("connect_error", reject);
+  });
+
+  const incomingMessage = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Timed out waiting for chat broadcast")), 5000);
+    socket.once("chat:message", (message) => {
+      clearTimeout(timer);
+      resolve(message);
+    });
+  });
+  socket.emit("chat:send", "dark-spot integration test message");
+  const received = await incomingMessage;
+  assert.equal(received.body, "dark-spot integration test message");
+  assert.equal(received.username, "owner_test");
+
+  const messagesResponse = await request("/api/messages", { headers: { cookie: ownerCookie } });
+  assert.equal(messagesResponse.status, 200);
+  const messages = (await messagesResponse.json()).messages;
+  assert.ok(messages.some((message) => message.body === "dark-spot integration test message"));
+
+  const logout = await request("/api/logout", { method: "POST", headers: { cookie: ownerCookie } });
+  assert.equal(logout.status, 200);
+  const afterLogout = await request("/api/me", { headers: { cookie: ownerCookie } });
+  assert.equal(afterLogout.status, 401);
+});
