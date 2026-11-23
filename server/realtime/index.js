@@ -47,7 +47,7 @@ function registerRealtime({ io, db, sessionMiddleware, maxCallParticipants = 6 }
       ).run(user.id, currentUser.username, body);
 
       const message = db.prepare(
-        "SELECT id, username, body, created_at AS createdAt FROM messages WHERE id = ?"
+        "SELECT id, user_id AS userId, username, body, created_at AS createdAt, edited_at AS editedAt FROM messages WHERE id = ?"
       ).get(result.lastInsertRowid);
       io.to("main-room").emit("chat:message", message);
     });
