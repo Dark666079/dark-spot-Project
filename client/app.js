@@ -47,6 +47,7 @@ function setLanguage(next) {
   $("languageButton").textContent = next === "fa" ? "English" : "فارسی";
   if ($("registrationHint")) $("registrationHint").textContent = translations[next][ownerSetupMode ? "setupHint" : "inviteHint"];
   if ($("joinCallButton")) updateCallControls();
+  if (currentUser && $("chatPanel") && !$("chatPanel").hidden) loadMessages();
 }
 
 function errorText(code) {
@@ -77,7 +78,7 @@ function showChat(user) {
   connectSocket();
 }
 
-function addMessage(message) {
+function addMessage(message, beforeNode = null) {
   const node = document.createElement("article");
   node.className = "message" + (currentUser && message.userId === currentUser.id ? " mine" : "");
   node.dataset.messageId = message.id;
@@ -124,16 +125,15 @@ function addMessage(message) {
     actions.append(remove);
   }
   if (actions.childElementCount) node.append(actions);
-  $("messages").append(node);
+  if (beforeNode) $("messages").insertBefore(node, beforeNode);
+  else $("messages").append(node);
   $("messages").scrollTop = $("messages").scrollHeight;
 }
 function updateMessage(message) {
   const oldNode = $("messages").querySelector('[data-message-id="' + message.id + '"]');
   if (!oldNode) return addMessage(message);
+  addMessage(message, oldNode);
   oldNode.remove();
-  const previousScroll = $("messages").scrollTop;
-  addMessage(message);
-  $("messages").scrollTop = previousScroll;
 }
 function deleteMessage(messageId) {
   const node = $("messages").querySelector('[data-message-id="' + messageId + '"]');
