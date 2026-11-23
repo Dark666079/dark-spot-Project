@@ -8,7 +8,8 @@
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "check": "node --check server/server.js && node --check server/config/index.js && node --check server/db/index.js && node --check server/middleware/auth.js && node --check server/session-store.js && node --check server/realtime/index.js && node --check server/modules/invitations/index.js && node --check server/modules/calls/index.js && node --check client/app.js",
-    "test": "node --test"
+    "test": "node --test",
+    "launcher": "node launcher/launcher.js"
   },
   "engines": {
     "node": ">=20"
