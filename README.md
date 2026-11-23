@@ -24,7 +24,7 @@ Private messaging and video calling platform for a small group of friends.
 npm install
 ```
 
-Set both a long random session secret and a separate random owner setup token before starting the server. Keep both values private and do not commit them to GitHub. The owner setup token must be at least 32 characters long.
+Set both a cryptographically random `SESSION_SECRET` (at least 32 characters) and a separate random `OWNER_SETUP_TOKEN` before starting the server. Startup is refused if `SESSION_SECRET` is missing or too short. Keep both values private and do not commit them to GitHub. The owner setup token must be at least 32 characters long.
 
 Windows PowerShell:
 ```powershell
@@ -42,7 +42,7 @@ npm start
 
 Open http://localhost:3000.
 
-The SQLite database is created in `data/dark-spot.sqlite`. On a fresh database, create the owner from the setup screen using `OWNER_SETUP_TOKEN`. Once the owner exists, the setup route is permanently closed for that database. The owner creates invitations from the owner panel; each invitation is single-use and expires exactly 96 hours after creation. Registration without a valid invitation is rejected. Do not expose the server publicly until HTTPS/tunnel configuration, persistent production session storage, and security testing are completed.
+The SQLite database is created in `data/dark-spot.sqlite`. It stores accounts, messages, invitations, and persistent login sessions. Password approval increments the account session version and invalidates that user’s previous sessions. Socket chat is limited to 8 messages per 10 seconds per connection. On a fresh database, create the owner from the setup screen using `OWNER_SETUP_TOKEN`. Once the owner exists, the setup route is permanently closed for that database. The owner creates invitations from the owner panel; each invitation is single-use and expires exactly 96 hours after creation. Registration without a valid invitation is rejected. Do not expose the server publicly until HTTPS/tunnel configuration, HTTPS/tunnel configuration and further security testing are completed.
 
 ## Hosting plan
 
