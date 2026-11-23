@@ -105,19 +105,31 @@ app.post("/api/register", async (req, res) => {
   }
 
   try {
-    const count = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
-    if (count >= MAX_USERS) return res.status(403).json({ error: "USER_LIMIT" });
-
     const passwordHash = await bcrypt.hash(password, 12);
-    const role = count === 0 ? "owner" : "member";
-    const result = db.prepare(
-      "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)"
-    ).run(username, passwordHash, role);
+    const user = db.transaction(() => {
+      const count = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
+      if (count >= MAX_USERS) {
+        const limitError = new Error("USER_LIMIT");
+        limitError.code = "USER_LIMIT";
+        throw limitError;
+      }
+      const role = count === 0 ? "owner" : "member";
+      const result = db.prepare(
+        "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)"
+      ).run(username, passwordHash, role);
+      return db.prepare("SELECT id, username, role FROM users WHERE id = ?").get(result.lastInsertRowid);
+    })();
 
-    const user = db.prepare("SELECT id, username, role FROM users WHERE id = ?").get(result.lastInsertRowid);
-    req.session.user = publicUser(user);
-    res.status(201).json({ user: publicUser(user) });
+    req.session.regenerate((sessionError) => {
+      if (sessionError) return res.status(500).json({ error: "SESSION_ERROR" });
+      req.session.user = publicUser(user);
+      req.session.save((saveError) => {
+        if (saveError) return res.status(500).json({ error: "SESSION_ERROR" });
+        res.status(201).json({ user: publicUser(user) });
+      });
+    });
   } catch (error) {
+    if (error.code === "USER_LIMIT") return res.status(403).json({ error: "USER_LIMIT" });
     if (String(error.code).startsWith("SQLITE_CONSTRAINT")) {
       return res.status(409).json({ error: "USERNAME_TAKEN" });
     }
