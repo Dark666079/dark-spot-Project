@@ -50,7 +50,7 @@ function setLanguage(next) {
 }
 
 function errorText(code) {
-  const map = { INVALID_CREDENTIALS:"invalid", USERNAME_TAKEN:"taken", USER_LIMIT:"limit", PASSWORD_RULES:"passwordRules", USERNAME_RULES:"usernameRules", CURRENT_PASSWORD_INVALID:"currentPasswordInvalid", REQUEST_ALREADY_PENDING:"requestPending", SAME_USERNAME:"sameUsername", INVITATION_INVALID:"invitationInvalid", INVALID_SETUP_TOKEN:"setupInvalid", OWNER_SETUP_DISABLED:"ownerSetupDisabled", INVITATION_CAPACITY_REACHED:"invitationCapacity" };
+  const map = { INVALID_CREDENTIALS:"invalid", USERNAME_TAKEN:"taken", USER_LIMIT:"limit", PASSWORD_RULES:"passwordRules", USERNAME_RULES:"usernameRules", CURRENT_PASSWORD_INVALID:"currentPasswordInvalid", REQUEST_ALREADY_PENDING:"requestPending", SAME_USERNAME:"sameUsername", INVITATION_INVALID:"invitationInvalid", INVALID_SETUP_TOKEN:"setupInvalid", OWNER_SETUP_DISABLED:"ownerSetupDisabled", INVITATION_CAPACITY_REACHED:"invitationCapacity", MESSAGE_RULES:"messageRules" };
   return translations[language][map[code] || "network"];
 }
 
