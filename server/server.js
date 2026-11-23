@@ -17,6 +17,7 @@ const {
   CLIENT_DIR
 } = require("./config");
 const db = require("./db");
+const { requireAuth, requireOwner } = require("./middleware/auth");
 const { registerRealtime } = require("./realtime");
 
 const app = express();
@@ -50,18 +51,6 @@ const publicUser = (user) => ({
   username: user.username,
   role: user.role
 });
-
-function requireAuth(req, res, next) {
-  if (!req.session.user) return res.status(401).json({ error: "AUTH_REQUIRED" });
-  next();
-}
-
-function requireOwner(req, res, next) {
-  if (req.session.user?.role !== "owner") {
-    return res.status(403).json({ error: "OWNER_ONLY" });
-  }
-  next();
-}
 
 app.get("/api/status", (_req, res) => {
   const count = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
