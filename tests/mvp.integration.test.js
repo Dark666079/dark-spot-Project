@@ -53,6 +53,7 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
       HOST: "127.0.0.1",
       DB_PATH: path.join(tempDir, "test.sqlite"),
       SESSION_SECRET: "test-only-session-secret-with-enough-length",
+      OWNER_SETUP_TOKEN: "test-owner-setup-token-very-long",
       NODE_ENV: "test"
     },
     stdio: ["ignore", "pipe", "pipe"]
@@ -85,10 +86,10 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal(status.maxUsers, 6);
   assert.equal(status.maxCallParticipants, 6);
 
-  const ownerResponse = await request("/api/register", {
+  const ownerResponse = await request("/api/setup", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username: "owner_test", password: "owner-password-123" })
+    body: JSON.stringify({ username: "owner_test", password: "owner-password-123", setupToken: "test-owner-setup-token-very-long" })
   });
   assert.equal(ownerResponse.status, 201);
   const ownerCookie = cookieFrom(ownerResponse);
@@ -99,10 +100,27 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal(meResponse.status, 200);
   assert.equal((await meResponse.json()).user.username, "owner_test");
 
+  const openRegistration = await request("/api/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "blocked_user", password: "blocked-password-123" })
+  });
+  assert.equal(openRegistration.status, 403);
+  assert.equal((await openRegistration.json()).error, "INVITATION_INVALID");
+
+  const createInvitation = async () => {
+    const response = await request("/api/invitations", {
+      method: "POST", headers: { cookie: ownerCookie, "content-type": "application/json" },
+      body: JSON.stringify({})
+    });
+    assert.equal(response.status, 201);
+    return (await response.json()).invitation;
+  };
+  const memberInvitation = await createInvitation();
   const memberResponse = await request("/api/register", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username: "member_test", password: "member-password-123" })
+    body: JSON.stringify({ username: "member_test", password: "member-password-123", invitationCode: memberInvitation.code })
   });
   assert.equal(memberResponse.status, 201);
   const memberCookie = cookieFrom(memberResponse);
@@ -117,10 +135,11 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(badCurrentPassword.status, 401);
 
+  const duplicateNameInvitation = await createInvitation();
   const duplicateRegisteredUsername = await request("/api/register", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username: "OWNER_TEST", password: "another-password-123" })
+    body: JSON.stringify({ username: "OWNER_TEST", password: "another-password-123", invitationCode: duplicateNameInvitation.code })
   });
   assert.equal(duplicateRegisteredUsername.status, 409);
   assert.equal((await duplicateRegisteredUsername.json()).error, "USERNAME_TAKEN");
@@ -132,6 +151,13 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(usernameChangeRequest.status, 201);
   const usernameRequestId = (await usernameChangeRequest.json()).requestId;
+  const reservedNameInvitation = await createInvitation();
+  const reservedNameRegistration = await request("/api/register", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "MEMBER_RENAMED", password: "another-password-123", invitationCode: reservedNameInvitation.code })
+  });
+  assert.equal(reservedNameRegistration.status, 409);
+  assert.equal((await reservedNameRegistration.json()).error, "USERNAME_TAKEN");
   const competingUsernameRequest = await request("/api/account-change-requests", {
     method: "POST",
     headers: { cookie: ownerCookie, "content-type": "application/json" },
@@ -193,10 +219,11 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal((await renamedMe.json()).user.username, "member_renamed");
 
   for (let index = 3; index <= 6; index += 1) {
+    const invitation = await createInvitation();
     const extraAccount = await request("/api/register", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ username: "member_" + index, password: "member-password-123" })
+      body: JSON.stringify({ username: "member_" + index, password: "member-password-123", invitationCode: invitation.code })
     });
     assert.equal(extraAccount.status, 201);
   }
@@ -206,7 +233,20 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
     body: JSON.stringify({ username: "seventh_user", password: "member-password-123" })
   });
   assert.equal(seventhAccount.status, 403);
-  assert.equal((await seventhAccount.json()).error, "USER_LIMIT");
+  assert.equal((await seventhAccount.json()).error, "INVITATION_INVALID");
+
+  const invitationReuse = await request("/api/register", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "reused_code_user", password: "member-password-123", invitationCode: memberInvitation.code })
+  });
+  assert.equal(invitationReuse.status, 403);
+  assert.equal((await invitationReuse.json()).error, "INVITATION_INVALID");
+
+  const memberCannotCreateInvitation = await request("/api/invitations", {
+    method: "POST", headers: { cookie: memberCookie, "content-type": "application/json" }, body: JSON.stringify({})
+  });
+  assert.equal(memberCannotCreateInvitation.status, 403);
+
 
   const forbiddenPromotion = await request("/api/users/" + member.id + "/role", {
     method: "PATCH",
@@ -221,6 +261,21 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
     body: JSON.stringify({ role: "admin" })
   });
   assert.equal(promotion.status, 200);
+
+  const invitationListResponse = await request("/api/invitations", { headers: { cookie: ownerCookie } });
+  assert.equal(invitationListResponse.status, 200);
+  const invitationList = (await invitationListResponse.json()).invitations;
+  assert.ok(invitationList.some((item) => item.id === memberInvitation.id && item.status === "used"));
+  const revocableInvitation = await createInvitation();
+  const revokeResponse = await request("/api/invitations/" + revocableInvitation.id, {
+    method: "DELETE", headers: { cookie: ownerCookie }
+  });
+  assert.equal(revokeResponse.status, 200);
+  const revokedUse = await request("/api/register", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "revoked_user", password: "member-password-123", invitationCode: revocableInvitation.code })
+  });
+  assert.equal(revokedUse.status, 403);
 
   const usersResponse = await request("/api/users", { headers: { cookie: ownerCookie } });
   assert.equal(usersResponse.status, 200);
