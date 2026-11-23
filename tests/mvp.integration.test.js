@@ -381,6 +381,44 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal(mediaUpdate.audioEnabled, true);
   assert.equal(mediaUpdate.videoEnabled, false);
 
+  const forcedMuteNotice = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Host mute command did not reach participant")), 5000);
+    memberSocket.once("call:moderation", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  const forcedMuteState = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Host mute state was not broadcast")), 5000);
+    socket.once("call:media-state", (payload) => { if (payload.userId === member.id) { clearTimeout(timer); resolve(payload); } });
+  });
+  socket.emit("call:moderate-media", { targetUserId: member.id, kind: "audio", blocked: true });
+  const muteNotice = await forcedMuteNotice;
+  const muteState = await forcedMuteState;
+  assert.deepEqual(muteNotice, { kind: "audio", blocked: true });
+  assert.equal(muteState.audioEnabled, false);
+  assert.equal(muteState.audioBlockedByHost, true);
+
+  const enforcedMuteState = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Server did not enforce host mute")), 5000);
+    socket.once("call:media-state", (payload) => { if (payload.userId === member.id) { clearTimeout(timer); resolve(payload); } });
+  });
+  memberSocket.emit("call:media-state", { audioEnabled: true, videoEnabled: false });
+  const enforcedState = await enforcedMuteState;
+  assert.equal(enforcedState.audioEnabled, false);
+  assert.equal(enforcedState.audioBlockedByHost, true);
+
+  const memberCannotModerate = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Non-owner moderation was not rejected")), 5000);
+    memberSocket.once("call:error", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  memberSocket.emit("call:moderate-media", { targetUserId: owner.id, kind: "video", blocked: true });
+  assert.equal((await memberCannotModerate).error, "OWNER_REQUIRED");
+
+  const releaseNotice = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Host did not release microphone")), 5000);
+    memberSocket.once("call:moderation", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  socket.emit("call:moderate-media", { targetUserId: member.id, kind: "audio", blocked: false });
+  assert.deepEqual(await releaseNotice, { kind: "audio", blocked: false });
+
   const relayedSignal = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("WebRTC signaling message was not relayed")), 5000);
     socket.once("call:signal", (payload) => { clearTimeout(timer); resolve(payload); });
