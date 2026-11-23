@@ -1,4 +1,7 @@
-function registerRealtime({ io, db, sessionMiddleware }) {
+const { createCallSignaling } = require("../modules/calls");
+
+function registerRealtime({ io, db, sessionMiddleware, maxCallParticipants = 6 }) {
+  const calls = createCallSignaling({ io, db, maxParticipants: maxCallParticipants });
   io.engine.use(sessionMiddleware);
 
   io.use((socket, next) => {
@@ -14,6 +17,7 @@ function registerRealtime({ io, db, sessionMiddleware }) {
     socket.join("main-room");
     if (user.role === "owner") socket.join("owner-room");
     socket.join("user-" + user.id);
+    calls.attach(socket);
 
     let windowStartedAt = Date.now();
     let messageCount = 0;
