@@ -214,7 +214,19 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/logout", requireAuth, (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
+  const user = db.prepare("SELECT role FROM users WHERE id = ?").get(req.session.user.id);
+  const isOwner = user?.role === "owner";
+  req.session.destroy(() => {
+    res.json({ ok: true, hostShutdownScheduled: Boolean(isOwner && process.env.DARKSPOT_LAUNCHER_URL) });
+    if (isOwner && process.env.DARKSPOT_LAUNCHER_URL && process.env.DARKSPOT_LAUNCHER_TOKEN) {
+      setTimeout(() => {
+        fetch(process.env.DARKSPOT_LAUNCHER_URL + "/internal/owner-logout", {
+          method: "POST",
+          headers: { "x-launcher-token": process.env.DARKSPOT_LAUNCHER_TOKEN }
+        }).catch((error) => console.error("Could not notify local launcher:", error.message));
+      }, 150);
+    }
+  });
 });
 
 app.get("/api/me", requireAuth, (req, res) => {
@@ -361,3 +373,18 @@ server.listen(PORT, HOST, () => {
   console.log(`Dark-Spot server listening on http://localhost:${actualPort}`);
   console.log(`Account limit: ${MAX_USERS}; call participant limit: ${MAX_CALL_PARTICIPANTS}`);
 });
+
+let shuttingDown = false;
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  io.close(() => {
+    server.close(() => {
+      db.close();
+      process.exit(0);
+    });
+  });
+  setTimeout(() => process.exit(1), 5000).unref();
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
