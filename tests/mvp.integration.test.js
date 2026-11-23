@@ -141,6 +141,14 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   const member = (await memberResponse.json()).user;
   assert.equal(member.role, "member");
 
+  const invitationReuse = await request("/api/register", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "reused_code_user", password: "member-password-123", invitationCode: memberInvitation.code })
+  });
+  assert.equal(invitationReuse.status, 403);
+  assert.equal((await invitationReuse.json()).error, "INVITATION_INVALID");
+
+
   const badCurrentPassword = await request("/api/account-change-requests", {
     method: "POST",
     headers: { cookie: memberCookie, "content-type": "application/json" },
@@ -264,13 +272,6 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(seventhAccount.status, 403);
   assert.equal((await seventhAccount.json()).error, "INVITATION_INVALID");
-
-  const invitationReuse = await request("/api/register", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username: "reused_code_user", password: "member-password-123", invitationCode: memberInvitation.code })
-  });
-  assert.equal(invitationReuse.status, 403);
-  assert.equal((await invitationReuse.json()).error, "INVITATION_INVALID");
 
   const memberCannotCreateInvitation = await request("/api/invitations", {
     method: "POST", headers: { cookie: memberCookie, "content-type": "application/json" }, body: JSON.stringify({})
