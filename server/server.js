@@ -1,4 +1,5 @@
 const path = require("node:path");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
 const express = require("express");
@@ -14,6 +15,7 @@ const HOST = process.env.HOST || "0.0.0.0";
 const MAX_USERS = 6;
 const MAX_CALL_PARTICIPANTS = 6;
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-this-secret-before-sharing";
+const OWNER_SETUP_TOKEN = process.env.OWNER_SETUP_TOKEN || "";
 
 const dataDir = path.join(__dirname, "..", "data");
 fs.mkdirSync(dataDir, { recursive: true });
@@ -52,6 +54,16 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS one_pending_username_change
     ON account_change_requests(proposed_username COLLATE NOCASE)
     WHERE status = 'pending' AND change_type = 'username' AND proposed_username IS NOT NULL;
+  CREATE TABLE IF NOT EXISTS invitations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    used_by INTEGER REFERENCES users(id),
+    revoked_at TEXT
+  );
 `);
 
 const app = express();
@@ -82,6 +94,9 @@ io.use((socket, next) => {
   next(new Error("AUTH_REQUIRED"));
 });
 
+const hashInvitation = (token) => crypto.createHash("sha256").update(token).digest("hex");
+const nowIso = () => new Date().toISOString();
+
 const publicUser = (user) => ({
   id: user.id,
   username: user.username,
@@ -101,23 +116,82 @@ function requireOwner(req, res, next) {
 }
 
 app.get("/api/status", (_req, res) => {
+  const count = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
   res.json({
     name: "Dark-Spot",
     status: "running",
     maxUsers: MAX_USERS,
-    maxCallParticipants: MAX_CALL_PARTICIPANTS
+    maxCallParticipants: MAX_CALL_PARTICIPANTS,
+    needsOwnerSetup: count === 0,
+    ownerSetupAvailable: Boolean(OWNER_SETUP_TOKEN)
   });
+});
+
+function validateCredentials(username, password, res) {
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+    res.status(400).json({ error: "USERNAME_RULES" });
+    return false;
+  }
+  if (password.length < 8 || password.length > 72) {
+    res.status(400).json({ error: "PASSWORD_RULES" });
+    return false;
+  }
+  return true;
+}
+
+function createSessionForUser(req, res, user, statusCode = 201) {
+  req.session.regenerate((sessionError) => {
+    if (sessionError) return res.status(500).json({ error: "SESSION_ERROR" });
+    req.session.user = publicUser(user);
+    req.session.save((saveError) => {
+      if (saveError) return res.status(500).json({ error: "SESSION_ERROR" });
+      res.status(statusCode).json({ user: publicUser(user) });
+    });
+  });
+}
+
+// The first owner is bootstrapped only with a local operator-provided secret.
+app.post("/api/setup", async (req, res) => {
+  if (!OWNER_SETUP_TOKEN) return res.status(503).json({ error: "OWNER_SETUP_DISABLED" });
+  if (!crypto.timingSafeEqual(
+    Buffer.from(String(req.body.setupToken || "")),
+    Buffer.from(OWNER_SETUP_TOKEN)
+  )) return res.status(403).json({ error: "INVALID_SETUP_TOKEN" });
+
+  const username = String(req.body.username || "").trim();
+  const password = String(req.body.password || "");
+  if (!validateCredentials(username, password, res)) return;
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 12);
+    const user = db.transaction(() => {
+      const count = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
+      if (count !== 0) {
+        const error = new Error("OWNER_ALREADY_EXISTS");
+        error.code = "OWNER_ALREADY_EXISTS";
+        throw error;
+      }
+      const result = db.prepare(
+        "INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'owner')"
+      ).run(username, passwordHash);
+      return db.prepare("SELECT id, username, role FROM users WHERE id = ?").get(result.lastInsertRowid);
+    }).immediate();
+    createSessionForUser(req, res, user);
+  } catch (error) {
+    if (error.code === "OWNER_ALREADY_EXISTS") return res.status(409).json({ error: "OWNER_ALREADY_EXISTS" });
+    if (String(error.code).startsWith("SQLITE_CONSTRAINT")) return res.status(409).json({ error: "USERNAME_TAKEN" });
+    console.error(error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
 });
 
 app.post("/api/register", async (req, res) => {
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "");
-
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-    return res.status(400).json({ error: "USERNAME_RULES" });
-  }
-  if (password.length < 8 || password.length > 72) {
-    return res.status(400).json({ error: "PASSWORD_RULES" });
+  const invitationCode = String(req.body.invitationCode || "").trim();
+  if (!validateCredentials(username, password, res)) return;
+  if (!/^[A-Za-z0-9_-]{32,100}$/.test(invitationCode)) {
+    return res.status(403).json({ error: "INVITATION_INVALID" });
   }
 
   try {
@@ -125,28 +199,47 @@ app.post("/api/register", async (req, res) => {
     const user = db.transaction(() => {
       const count = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
       if (count >= MAX_USERS) {
-        const limitError = new Error("USER_LIMIT");
-        limitError.code = "USER_LIMIT";
-        throw limitError;
+        const error = new Error("USER_LIMIT");
+        error.code = "USER_LIMIT";
+        throw error;
       }
-      const role = count === 0 ? "owner" : "member";
+      const nameTaken = db.prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE").get(username);
+      const nameReserved = db.prepare(
+        "SELECT id FROM account_change_requests WHERE proposed_username = ? COLLATE NOCASE AND status = 'pending' AND change_type = 'username'"
+      ).get(username);
+      if (nameTaken || nameReserved) {
+        const error = new Error("USERNAME_TAKEN");
+        error.code = "USERNAME_TAKEN";
+        throw error;
+      }
+      const now = nowIso();
+      const invitation = db.prepare(
+        "SELECT id FROM invitations WHERE token_hash = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?"
+      ).get(hashInvitation(invitationCode), now);
+      if (!invitation) {
+        const error = new Error("INVITATION_INVALID");
+        error.code = "INVITATION_INVALID";
+        throw error;
+      }
       const result = db.prepare(
-        "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)"
-      ).run(username, passwordHash, role);
+        "INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'member')"
+      ).run(username, passwordHash);
+      const consumed = db.prepare(
+        "UPDATE invitations SET used_at = ?, used_by = ? WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL"
+      ).run(now, result.lastInsertRowid, invitation.id);
+      if (consumed.changes !== 1) {
+        const error = new Error("INVITATION_INVALID");
+        error.code = "INVITATION_INVALID";
+        throw error;
+      }
       return db.prepare("SELECT id, username, role FROM users WHERE id = ?").get(result.lastInsertRowid);
-    })();
+    }).immediate();
 
-    req.session.regenerate((sessionError) => {
-      if (sessionError) return res.status(500).json({ error: "SESSION_ERROR" });
-      req.session.user = publicUser(user);
-      req.session.save((saveError) => {
-        if (saveError) return res.status(500).json({ error: "SESSION_ERROR" });
-        res.status(201).json({ user: publicUser(user) });
-      });
-    });
+    createSessionForUser(req, res, user);
   } catch (error) {
     if (error.code === "USER_LIMIT") return res.status(403).json({ error: "USER_LIMIT" });
-    if (String(error.code).startsWith("SQLITE_CONSTRAINT")) {
+    if (error.code === "INVITATION_INVALID") return res.status(403).json({ error: "INVITATION_INVALID" });
+    if (error.code === "USERNAME_TAKEN" || String(error.code).startsWith("SQLITE_CONSTRAINT")) {
       return res.status(409).json({ error: "USERNAME_TAKEN" });
     }
     console.error(error);
@@ -192,7 +285,6 @@ app.post("/api/account-change-requests", requireAuth, async (req, res) => {
     proposedUsername = String(req.body.newUsername || "").trim();
     if (!/^[a-zA-Z0-9_]{3,20}$/.test(proposedUsername)) return res.status(400).json({ error: "USERNAME_RULES" });
     if (proposedUsername.toLowerCase() === user.username.toLowerCase()) return res.status(400).json({ error: "SAME_USERNAME" });
-    if (db.prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE").get(proposedUsername)) return res.status(409).json({ error: "USERNAME_TAKEN" });
   } else if (type === "password") {
     const newPassword = String(req.body.newPassword || "");
     if (newPassword.length < 8 || newPassword.length > 72) return res.status(400).json({ error: "PASSWORD_RULES" });
@@ -200,10 +292,21 @@ app.post("/api/account-change-requests", requireAuth, async (req, res) => {
   } else return res.status(400).json({ error: "INVALID_CHANGE_TYPE" });
   let result;
   try {
-    result = db.prepare("INSERT INTO account_change_requests (user_id, change_type, proposed_username, proposed_password_hash) VALUES (?, ?, ?, ?)").run(user.id, type, proposedUsername, proposedPasswordHash);
+    result = db.transaction(() => {
+      if (type === "username") {
+        const taken = db.prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE").get(proposedUsername);
+        if (taken) {
+          const error = new Error("USERNAME_TAKEN");
+          error.code = "USERNAME_TAKEN";
+          throw error;
+        }
+      }
+      return db.prepare("INSERT INTO account_change_requests (user_id, change_type, proposed_username, proposed_password_hash) VALUES (?, ?, ?, ?)")
+        .run(user.id, type, proposedUsername, proposedPasswordHash);
+    }).immediate();
   } catch (error) {
-    if (String(error.code).startsWith("SQLITE_CONSTRAINT")) {
-      if (String(error.message).includes("proposed_username")) return res.status(409).json({ error: "USERNAME_TAKEN" });
+    if (error.code === "USERNAME_TAKEN" || String(error.code).startsWith("SQLITE_CONSTRAINT")) {
+      if (String(error.message).includes("proposed_username") || error.code === "USERNAME_TAKEN") return res.status(409).json({ error: "USERNAME_TAKEN" });
       return res.status(409).json({ error: "REQUEST_ALREADY_PENDING" });
     }
     throw error;
@@ -245,6 +348,49 @@ app.patch("/api/account-change-requests/:id", requireAuth, requireOwner, (req, r
   if (!request) return res.status(404).json({ error:"REQUEST_NOT_FOUND" });
   io.to("user-" + request.user_id).emit("account-change:result", { requestId:request.id, decision, type:request.change_type });
   res.json({ ok:true });
+});
+
+app.post("/api/invitations", requireAuth, requireOwner, (_req, res) => {
+  const now = nowIso();
+  const userCount = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
+  const activeInvites = db.prepare(
+    "SELECT COUNT(*) AS count FROM invitations WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at > ?"
+  ).get(now).count;
+  if (userCount + activeInvites >= MAX_USERS) return res.status(409).json({ error: "INVITATION_CAPACITY_REACHED" });
+
+  const code = crypto.randomBytes(32).toString("base64url");
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + 4 * 24 * 60 * 60 * 1000);
+  const result = db.prepare(
+    "INSERT INTO invitations (token_hash, created_by, created_at, expires_at) VALUES (?, ?, ?, ?)"
+  ).run(hashInvitation(code), _req.session.user.id, createdAt.toISOString(), expiresAt.toISOString());
+  res.status(201).json({
+    invitation: {
+      id: Number(result.lastInsertRowid),
+      code,
+      createdAt: createdAt.toISOString(),
+      expiresAt: expiresAt.toISOString()
+    }
+  });
+});
+
+app.get("/api/invitations", requireAuth, requireOwner, (_req, res) => {
+  const now = nowIso();
+  const invitations = db.prepare(
+    "SELECT i.id, i.created_at AS createdAt, i.expires_at AS expiresAt, i.used_at AS usedAt, i.revoked_at AS revokedAt, u.username AS usedBy FROM invitations i LEFT JOIN users u ON u.id = i.used_by ORDER BY i.id DESC"
+  ).all().map((item) => ({
+    ...item,
+    status: item.usedAt ? "used" : item.revokedAt ? "revoked" : item.expiresAt <= now ? "expired" : "active"
+  }));
+  res.json({ invitations });
+});
+
+app.delete("/api/invitations/:id", requireAuth, requireOwner, (req, res) => {
+  const result = db.prepare(
+    "UPDATE invitations SET revoked_at = ? WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?"
+  ).run(nowIso(), Number(req.params.id), nowIso());
+  if (!result.changes) return res.status(404).json({ error: "INVITATION_NOT_ACTIVE" });
+  res.json({ ok: true });
 });
 
 app.get("/api/messages", requireAuth, (_req, res) => {
