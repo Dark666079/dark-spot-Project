@@ -4,7 +4,10 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
 const MAX_USERS = 6;
 const MAX_CALL_PARTICIPANTS = 6;
-const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-this-secret-before-sharing";
+const SESSION_SECRET = process.env.SESSION_SECRET || "";
+if (SESSION_SECRET.length < 32) {
+  throw new Error("SESSION_SECRET must be set to a private random value of at least 32 characters.");
+}
 const OWNER_SETUP_TOKEN = process.env.OWNER_SETUP_TOKEN || "";
 
 const CLIENT_DIR = path.join(__dirname, "..", "..", "client");
