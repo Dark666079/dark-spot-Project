@@ -20,12 +20,15 @@ const db = require("./db");
 const { createInvitationRouter } = require("./modules/invitations");
 const { requireAuth, requireOwner } = require("./middleware/auth");
 const { registerRealtime } = require("./realtime");
+const { SQLiteSessionStore } = require("./session-store");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+app.locals.db = db;
 const sessionMiddleware = session({
   name: "darkspot.sid",
+  store: new SQLiteSessionStore(db),
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -55,6 +58,8 @@ const publicUser = (user) => ({
   role: user.role
 });
 
+const sessionUser = (user) => ({ ...publicUser(user), authVersion: user.auth_version ?? 0 });
+
 app.get("/api/status", (_req, res) => {
   const count = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
   res.json({
@@ -82,7 +87,7 @@ function validateCredentials(username, password, res) {
 function createSessionForUser(req, res, user, statusCode = 201) {
   req.session.regenerate((sessionError) => {
     if (sessionError) return res.status(500).json({ error: "SESSION_ERROR" });
-    req.session.user = publicUser(user);
+    req.session.user = sessionUser(user);
     req.session.save((saveError) => {
       if (saveError) return res.status(500).json({ error: "SESSION_ERROR" });
       res.status(statusCode).json({ user: publicUser(user) });
@@ -115,7 +120,7 @@ app.post("/api/setup", async (req, res) => {
       const result = db.prepare(
         "INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'owner')"
       ).run(username, passwordHash);
-      return db.prepare("SELECT id, username, role FROM users WHERE id = ?").get(result.lastInsertRowid);
+      return db.prepare("SELECT id, username, role, auth_version FROM users WHERE id = ?").get(result.lastInsertRowid);
     }).immediate();
     createSessionForUser(req, res, user);
   } catch (error) {
@@ -209,9 +214,9 @@ app.post("/api/logout", requireAuth, (req, res) => {
 });
 
 app.get("/api/me", requireAuth, (req, res) => {
-  const user = db.prepare("SELECT id, username, role FROM users WHERE id = ?").get(req.session.user.id);
+  const user = db.prepare("SELECT id, username, role, auth_version FROM users WHERE id = ?").get(req.session.user.id);
   if (!user) return res.status(401).json({ error: "AUTH_REQUIRED" });
-  req.session.user = publicUser(user);
+  req.session.user = sessionUser(user);
   res.json({ user: publicUser(user) });
 });
 
@@ -274,7 +279,7 @@ app.patch("/api/account-change-requests/:id", requireAuth, requireOwner, (req, r
         if (pending.change_type === "username") {
           db.prepare("UPDATE users SET username = ? WHERE id = ?").run(pending.proposed_username, pending.user_id);
         } else {
-          db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(pending.proposed_password_hash, pending.user_id);
+          db.prepare("UPDATE users SET password_hash = ?, auth_version = auth_version + 1 WHERE id = ?").run(pending.proposed_password_hash, pending.user_id);
         }
       }
       const updated = db.prepare("UPDATE account_change_requests SET status = ?, proposed_password_hash = NULL WHERE id = ? AND status = 'pending'")
@@ -287,6 +292,9 @@ app.patch("/api/account-change-requests/:id", requireAuth, requireOwner, (req, r
     throw error;
   }
   if (!request) return res.status(404).json({ error:"REQUEST_NOT_FOUND" });
+  if (decision === "approve" && request.change_type === "password") {
+    io.in("user-" + request.user_id).disconnectSockets(true);
+  }
   io.to("user-" + request.user_id).emit("account-change:result", { requestId:request.id, decision, type:request.change_type });
   res.json({ ok:true });
 });
@@ -321,7 +329,4 @@ server.listen(PORT, HOST, () => {
   const actualPort = address && typeof address === "object" ? address.port : PORT;
   console.log(`Dark-Spot server listening on http://localhost:${actualPort}`);
   console.log(`Account limit: ${MAX_USERS}; call participant limit: ${MAX_CALL_PARTICIPANTS}`);
-  if (SESSION_SECRET.startsWith("dev-only")) {
-    console.warn("WARNING: Set SESSION_SECRET before exposing this server to the internet.");
-  }
 });
