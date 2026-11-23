@@ -72,7 +72,7 @@ function createCallSignaling({ io, db, maxParticipants }) {
       if (!participant || participant.socketId !== socket.id) return;
       participant.audioEnabled = !participant.audioBlockedByHost && state.audioEnabled === true;
       participant.videoEnabled = !participant.videoBlockedByHost && state.videoEnabled === true;
-      io.to("call-room").emit("call:media-state", { userId, audioEnabled: participant.audioEnabled, videoEnabled: participant.videoEnabled });
+      io.to("call-room").emit("call:media-state", { userId, audioEnabled: participant.audioEnabled, videoEnabled: participant.videoEnabled, audioBlockedByHost: participant.audioBlockedByHost, videoBlockedByHost: participant.videoBlockedByHost });
     });
 
     socket.on("call:moderate-media", (payload = {}) => {
