@@ -57,3 +57,17 @@ The target is to run the server on the owner's computer. Friends will connect th
 4. Add public HTTPS tunnel deployment and production session handling.
 5. Add optional games/entertainment after core chat and calls are stable.
 \n\n## Group calls\n\nCalls use a peer-to-peer WebRTC mesh with a maximum of 6 participants. Each participant can independently enable or disable their own microphone and camera; the owner has the same controls as everyone else. The current ICE configuration uses a public STUN server only. Some network/NAT combinations will not establish a direct connection without a TURN relay, so calls must be tested over HTTPS on the actual networks before being considered production-ready. Camera and microphone access require a secure context (HTTPS, or localhost during local development).\n\n\nCall moderation: the owner can independently disable or re-enable another participant's microphone or camera while they are in the call. The server authorizes this action against the current database role and enforces the restriction in participant media state; the participant's browser stops and removes the affected local media track. Participants are notified when a restriction is applied or released.\n\n\n## Message moderation\n\nEvery signed-in user can edit only messages they authored. The owner and admins can delete any message for everyone. Both actions are authorized on the server using the message author ID and the user's current database role; successful edits and deletions are broadcast to all connected chat clients. Existing databases are migrated automatically to add the message edit timestamp.\n
+
+## Local owner launcher (Windows, macOS, Linux)
+
+Run `npm install` once, then start the local launcher with:
+
+```bash
+npm run launcher
+```
+
+Open `http://127.0.0.1:4317` on the host computer. Use its buttons to start or stop the application server. The launcher binds only to the loopback interface and is not exposed through the public tunnel. It starts the app as a child process and gives that process a temporary private control token.
+
+When the authenticated Owner logs out while the server was started by the launcher, the app asks the local launcher to stop the server. The launcher remains open so the Owner can start it again from the local control page. Closing the launcher also stops its child server.
+
+Important: the launcher must remain running for this behavior. Starting the app directly with `npm start` bypasses launcher controls, so Owner logout will not stop that manually started server. The current launcher is a local browser-based control panel, not yet a packaged Windows installer or desktop executable.
