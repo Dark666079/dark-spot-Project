@@ -152,11 +152,12 @@ function createSessionForUser(req, res, user, statusCode = 201) {
 
 // The first owner is bootstrapped only with a local operator-provided secret.
 app.post("/api/setup", async (req, res) => {
-  if (!OWNER_SETUP_TOKEN) return res.status(503).json({ error: "OWNER_SETUP_DISABLED" });
-  if (!crypto.timingSafeEqual(
-    Buffer.from(String(req.body.setupToken || "")),
-    Buffer.from(OWNER_SETUP_TOKEN)
-  )) return res.status(403).json({ error: "INVALID_SETUP_TOKEN" });
+  if (OWNER_SETUP_TOKEN.length < 32) return res.status(503).json({ error: "OWNER_SETUP_DISABLED" });
+  const suppliedSetupToken = Buffer.from(String(req.body.setupToken || ""));
+  const expectedSetupToken = Buffer.from(OWNER_SETUP_TOKEN);
+  if (suppliedSetupToken.length !== expectedSetupToken.length || !crypto.timingSafeEqual(suppliedSetupToken, expectedSetupToken)) {
+    return res.status(403).json({ error: "INVALID_SETUP_TOKEN" });
+  }
 
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "");
