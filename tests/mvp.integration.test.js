@@ -109,6 +109,56 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   const member = (await memberResponse.json()).user;
   assert.equal(member.role, "member");
 
+
+  const usernameChangeRequest = await request("/api/account-change-requests", {
+    method: "POST",
+    headers: { cookie: memberCookie, "content-type": "application/json" },
+    body: JSON.stringify({ type: "username", currentPassword: "member-password-123", newUsername: "member_renamed" })
+  });
+  assert.equal(usernameChangeRequest.status, 201);
+  const usernameRequestId = (await usernameChangeRequest.json()).requestId;
+  const ownerPending = await request("/api/account-change-requests", { headers: { cookie: ownerCookie } });
+  assert.equal(ownerPending.status, 200);
+  assert.ok((await ownerPending.json()).requests.some((item) => item.id === usernameRequestId));
+  const rejectUsername = await request("/api/account-change-requests/" + usernameRequestId, {
+    method: "PATCH", headers: { cookie: ownerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ decision: "reject" })
+  });
+  assert.equal(rejectUsername.status, 200);
+
+  const passwordChangeRequest = await request("/api/account-change-requests", {
+    method: "POST",
+    headers: { cookie: memberCookie, "content-type": "application/json" },
+    body: JSON.stringify({ type: "password", currentPassword: "member-password-123", newPassword: "member-password-456" })
+  });
+  assert.equal(passwordChangeRequest.status, 201);
+  const passwordRequestId = (await passwordChangeRequest.json()).requestId;
+  const approvePassword = await request("/api/account-change-requests/" + passwordRequestId, {
+    method: "PATCH", headers: { cookie: ownerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ decision: "approve" })
+  });
+  assert.equal(approvePassword.status, 200);
+  const newPasswordLogin = await request("/api/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "member_test", password: "member-password-456" })
+  });
+  assert.equal(newPasswordLogin.status, 200);
+
+  const approvedUsernameRequest = await request("/api/account-change-requests", {
+    method: "POST",
+    headers: { cookie: memberCookie, "content-type": "application/json" },
+    body: JSON.stringify({ type: "username", currentPassword: "member-password-456", newUsername: "member_renamed" })
+  });
+  assert.equal(approvedUsernameRequest.status, 201);
+  const approvedUsernameId = (await approvedUsernameRequest.json()).requestId;
+  const approveUsername = await request("/api/account-change-requests/" + approvedUsernameId, {
+    method: "PATCH", headers: { cookie: ownerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ decision: "approve" })
+  });
+  assert.equal(approveUsername.status, 200);
+  const renamedMe = await request("/api/me", { headers: { cookie: memberCookie } });
+  assert.equal((await renamedMe.json()).user.username, "member_renamed");
+
   for (let index = 3; index <= 6; index += 1) {
     const extraAccount = await request("/api/register", {
       method: "POST",
