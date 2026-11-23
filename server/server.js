@@ -17,10 +17,12 @@ const {
   CLIENT_DIR
 } = require("./config");
 const db = require("./db");
+const { registerRealtime } = require("./realtime");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+registerRealtime({ io, db, sessionMiddleware });
 const sessionMiddleware = session({
   name: "darkspot.sid",
   secret: SESSION_SECRET,
@@ -39,12 +41,6 @@ app.use(express.json({ limit: "20kb" }));
 app.use(sessionMiddleware);
 app.use("/api", rateLimit({ windowMs: 15 * 60 * 1000, limit: 300 }));
 app.use(express.static(CLIENT_DIR));
-
-io.engine.use(sessionMiddleware);
-io.use((socket, next) => {
-  if (socket.request.session?.user) return next();
-  next(new Error("AUTH_REQUIRED"));
-});
 
 const hashInvitation = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const nowIso = () => new Date().toISOString();
@@ -380,27 +376,6 @@ app.patch("/api/users/:id/role", requireAuth, requireOwner, (req, res) => {
     .run(role, Number(req.params.id));
   if (!result.changes) return res.status(404).json({ error: "USER_NOT_FOUND" });
   res.json({ ok: true });
-});
-
-io.on("connection", (socket) => {
-  const user = socket.request.session.user;
-  socket.join("main-room");
-  if (user.role === "owner") socket.join("owner-room");
-  socket.join("user-" + user.id);
-
-  socket.on("chat:send", (rawBody) => {
-    const body = String(rawBody || "").trim();
-    if (!body || body.length > 2000) return;
-
-    const result = db.prepare(
-      "INSERT INTO messages (user_id, username, body) VALUES (?, ?, ?)"
-    ).run(user.id, user.username, body);
-
-    const message = db.prepare(
-      "SELECT id, username, body, created_at AS createdAt FROM messages WHERE id = ?"
-    ).get(result.lastInsertRowid);
-    io.to("main-room").emit("chat:message", message);
-  });
 });
 
 server.listen(PORT, HOST, () => {
