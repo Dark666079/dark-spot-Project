@@ -68,7 +68,9 @@ function addMessage(message) {
   const body = document.createElement("p");
   body.textContent = message.body;
   const time = document.createElement("time");
-  time.textContent = new Date(message.createdAt + "Z").toLocaleString(language === "fa" ? "fa-IR" : "en");
+  const storedTimestamp = String(message.createdAt).replace(" ", "T");
+  const isoTimestamp = storedTimestamp.endsWith("Z") ? storedTimestamp : storedTimestamp + "Z";
+  time.textContent = new Date(isoTimestamp).toLocaleString(language === "fa" ? "fa-IR" : "en");
   node.append(name, body, time);
   $("messages").append(node);
   $("messages").scrollTop = $("messages").scrollHeight;
