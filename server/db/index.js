@@ -16,8 +16,15 @@ db.exec(`
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('owner','admin','member')),
+    auth_version INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS sessions (
+    sid TEXT PRIMARY KEY,
+    sess TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS sessions_expires_at ON sessions(expires_at);
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id),
@@ -50,5 +57,10 @@ db.exec(`
     revoked_at TEXT
   );
 `);
+
+const userColumns = db.prepare("PRAGMA table_info(users)").all();
+if (!userColumns.some((column) => column.name === "auth_version")) {
+  db.exec("ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0");
+}
 
 module.exports = db;
