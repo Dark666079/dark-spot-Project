@@ -23,6 +23,7 @@ const { registerRealtime } = require("./realtime");
 const { SQLiteSessionStore } = require("./session-store");
 
 const app = express();
+if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
 const server = http.createServer(app);
 const io = new Server(server);
 app.locals.db = db;
@@ -204,8 +205,11 @@ app.post("/api/login", async (req, res) => {
 
   req.session.regenerate((error) => {
     if (error) return res.status(500).json({ error: "SESSION_ERROR" });
-    req.session.user = publicUser(user);
-    res.json({ user: publicUser(user) });
+    req.session.user = sessionUser(user);
+    req.session.save((saveError) => {
+      if (saveError) return res.status(500).json({ error: "SESSION_ERROR" });
+      res.json({ user: publicUser(user) });
+    });
   });
 });
 
