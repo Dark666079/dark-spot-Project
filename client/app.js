@@ -419,6 +419,8 @@ $("joinCallButton").addEventListener("click", joinCall);
 $("leaveCallButton").addEventListener("click", leaveCall);
 $("audioButton").addEventListener("click", () => setMedia("audio", !audioEnabled));
 $("videoButton").addEventListener("click", () => setMedia("video", !videoEnabled));
-\nsetLanguage("fa");\nupdateCallControls();
+
+setLanguage("fa");
+updateCallControls();
 configureRegistration();
 api("/api/me").then(({ user }) => showChat(user)).catch(() => {});
