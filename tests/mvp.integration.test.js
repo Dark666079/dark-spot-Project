@@ -60,8 +60,10 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
 
   let socket;
+  let memberSocket;
   t.after(async () => {
     if (socket) socket.disconnect();
+    if (memberSocket) memberSocket.disconnect();
     child.kill("SIGTERM");
     await new Promise((resolve) => {
       if (child.exitCode !== null) return resolve();
@@ -336,6 +338,59 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
     socket.once("connect", resolve);
     socket.once("connect_error", reject);
   });
+
+  const ownerJoinedCall = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Owner did not join call")), 5000);
+    socket.once("call:joined", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  socket.emit("call:join");
+  const ownerCallState = await ownerJoinedCall;
+  assert.equal(ownerCallState.participants.length, 1);
+  assert.equal(ownerCallState.selfUserId, owner.id);
+
+  memberSocket = createSocket(base, {
+    extraHeaders: { Cookie: refreshedMemberCookie },
+    timeout: 5000,
+    reconnection: false
+  });
+  await new Promise((resolve, reject) => {
+    memberSocket.once("connect", resolve);
+    memberSocket.once("connect_error", reject);
+  });
+  const participantJoined = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Call participant join was not broadcast")), 5000);
+    socket.once("call:participant-joined", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  const memberJoinedCall = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Member did not join call")), 5000);
+    memberSocket.once("call:joined", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  memberSocket.emit("call:join");
+  const joinedParticipant = await participantJoined;
+  const memberCallState = await memberJoinedCall;
+  assert.equal(joinedParticipant.participant.userId, member.id);
+  assert.equal(memberCallState.participants.length, 2);
+
+  const mediaState = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Call media state was not broadcast")), 5000);
+    socket.once("call:media-state", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  memberSocket.emit("call:media-state", { audioEnabled: true, videoEnabled: false });
+  const mediaUpdate = await mediaState;
+  assert.equal(mediaUpdate.userId, member.id);
+  assert.equal(mediaUpdate.audioEnabled, true);
+  assert.equal(mediaUpdate.videoEnabled, false);
+
+  const relayedSignal = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("WebRTC signaling message was not relayed")), 5000);
+    socket.once("call:signal", (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+  memberSocket.emit("call:signal", { targetUserId: owner.id, signal: { description: { type: "offer", sdp: "test-sdp" } } });
+  const signalPayload = await relayedSignal;
+  assert.equal(signalPayload.fromUserId, member.id);
+  assert.equal(signalPayload.signal.description.sdp, "test-sdp");
+  memberSocket.emit("call:leave");
+  socket.emit("call:leave");
 
   const incomingMessage = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Timed out waiting for chat broadcast")), 5000);
