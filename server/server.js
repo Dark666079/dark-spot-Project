@@ -49,6 +49,9 @@ db.exec(`
   );
   CREATE UNIQUE INDEX IF NOT EXISTS one_pending_account_change_per_user
     ON account_change_requests(user_id) WHERE status = 'pending';
+  CREATE UNIQUE INDEX IF NOT EXISTS one_pending_username_change
+    ON account_change_requests(proposed_username COLLATE NOCASE)
+    WHERE status = 'pending' AND change_type = 'username' AND proposed_username IS NOT NULL;
 `);
 
 const app = express();
@@ -199,7 +202,10 @@ app.post("/api/account-change-requests", requireAuth, async (req, res) => {
   try {
     result = db.prepare("INSERT INTO account_change_requests (user_id, change_type, proposed_username, proposed_password_hash) VALUES (?, ?, ?, ?)").run(user.id, type, proposedUsername, proposedPasswordHash);
   } catch (error) {
-    if (String(error.code).startsWith("SQLITE_CONSTRAINT")) return res.status(409).json({ error: "REQUEST_ALREADY_PENDING" });
+    if (String(error.code).startsWith("SQLITE_CONSTRAINT")) {
+      if (String(error.message).includes("proposed_username")) return res.status(409).json({ error: "USERNAME_TAKEN" });
+      return res.status(409).json({ error: "REQUEST_ALREADY_PENDING" });
+    }
     throw error;
   }
   const request = { id:Number(result.lastInsertRowid), userId:user.id, username:user.username, type, proposedUsername };
