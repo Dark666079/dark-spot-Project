@@ -41,7 +41,7 @@ const sessionMiddleware = session({
   }
 });
 
-registerRealtime({ io, db, sessionMiddleware });
+registerRealtime({ io, db, sessionMiddleware, maxCallParticipants: MAX_CALL_PARTICIPANTS });
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "20kb" }));
