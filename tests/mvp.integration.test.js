@@ -277,14 +277,14 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal((await seventhAccount.json()).error, "INVITATION_INVALID");
 
   const memberCannotCreateInvitation = await request("/api/invitations", {
-    method: "POST", headers: { cookie: memberCookie, "content-type": "application/json" }, body: JSON.stringify({})
+    method: "POST", headers: { cookie: refreshedMemberCookie, "content-type": "application/json" }, body: JSON.stringify({})
   });
   assert.equal(memberCannotCreateInvitation.status, 403);
 
 
   const forbiddenPromotion = await request("/api/users/" + member.id + "/role", {
     method: "PATCH",
-    headers: { cookie: memberCookie, "content-type": "application/json" },
+    headers: { cookie: refreshedMemberCookie, "content-type": "application/json" },
     body: JSON.stringify({ role: "admin" })
   });
   assert.equal(forbiddenPromotion.status, 403);
