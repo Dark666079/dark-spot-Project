@@ -229,10 +229,13 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
     body: JSON.stringify({ username: "member_test", password: "member-password-456" })
   });
   assert.equal(newPasswordLogin.status, 200);
+  const staleSessionResponse = await request("/api/me", { headers: { cookie: memberCookie } });
+  assert.equal(staleSessionResponse.status, 401);
+  const refreshedMemberCookie = cookieFrom(newPasswordLogin);
 
   const approvedUsernameRequest = await request("/api/account-change-requests", {
     method: "POST",
-    headers: { cookie: memberCookie, "content-type": "application/json" },
+    headers: { cookie: refreshedMemberCookie, "content-type": "application/json" },
     body: JSON.stringify({ type: "username", currentPassword: "member-password-456", newUsername: "member_renamed" })
   });
   assert.equal(approvedUsernameRequest.status, 201);
@@ -242,7 +245,7 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
     body: JSON.stringify({ decision: "approve" })
   });
   assert.equal(approveUsername.status, 200);
-  const renamedMe = await request("/api/me", { headers: { cookie: memberCookie } });
+  const renamedMe = await request("/api/me", { headers: { cookie: refreshedMemberCookie } });
   assert.equal((await renamedMe.json()).user.username, "member_renamed");
 
   const revocableInvitation = await createInvitation();
