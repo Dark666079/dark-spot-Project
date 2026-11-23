@@ -110,6 +110,13 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal(member.role, "member");
 
 
+  const badCurrentPassword = await request("/api/account-change-requests", {
+    method: "POST",
+    headers: { cookie: memberCookie, "content-type": "application/json" },
+    body: JSON.stringify({ type: "username", currentPassword: "wrong-password", newUsername: "member_renamed" })
+  });
+  assert.equal(badCurrentPassword.status, 401);
+
   const usernameChangeRequest = await request("/api/account-change-requests", {
     method: "POST",
     headers: { cookie: memberCookie, "content-type": "application/json" },
@@ -117,9 +124,18 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(usernameChangeRequest.status, 201);
   const usernameRequestId = (await usernameChangeRequest.json()).requestId;
+  const duplicatePendingRequest = await request("/api/account-change-requests", {
+    method: "POST",
+    headers: { cookie: memberCookie, "content-type": "application/json" },
+    body: JSON.stringify({ type: "password", currentPassword: "member-password-123", newPassword: "another-password-456" })
+  });
+  assert.equal(duplicatePendingRequest.status, 409);
+  assert.equal((await duplicatePendingRequest.json()).error, "REQUEST_ALREADY_PENDING");
   const ownerPending = await request("/api/account-change-requests", { headers: { cookie: ownerCookie } });
   assert.equal(ownerPending.status, 200);
-  assert.ok((await ownerPending.json()).requests.some((item) => item.id === usernameRequestId));
+  const pendingList = (await ownerPending.json()).requests;
+  assert.ok(pendingList.some((item) => item.id === usernameRequestId));
+  assert.equal(JSON.stringify(pendingList).includes("proposed_password_hash"), false);
   const rejectUsername = await request("/api/account-change-requests/" + usernameRequestId, {
     method: "PATCH", headers: { cookie: ownerCookie, "content-type": "application/json" },
     body: JSON.stringify({ decision: "reject" })
@@ -138,6 +154,8 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
     body: JSON.stringify({ decision: "approve" })
   });
   assert.equal(approvePassword.status, 200);
+  const approvedPasswordRequest = await request("/api/account-change-requests", { headers: { cookie: ownerCookie } });
+  assert.equal(JSON.stringify(await approvedPasswordRequest.json()).includes("member-password-456"), false);
   const newPasswordLogin = await request("/api/login", {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ username: "member_test", password: "member-password-456" })
