@@ -40,3 +40,11 @@ body[dir="ltr"] .message{align-self:flex-start}
 @media(max-width:520px){.auth-panel{padding:24px;margin-top:6vh}.chat-panel{padding:16px}.chat-heading{align-items:flex-start;flex-direction:column}.user-tools{width:100%;justify-content:space-between}.message-form{gap:7px}.send-button{min-width:65px;padding-inline:12px}}
 
 .account-tools{border:1px solid var(--line);border-radius:14px;padding:16px;margin:18px 0;background:#0d0d14}.account-tools h2{font-size:16px;margin:0 0 12px}.account-tools form{display:grid;gap:8px}.account-tools select{width:100%;background:#09090f;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit}.request-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}.request-item span{flex:1;min-width:150px}
+
+.call-controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.call-controls button:disabled{opacity:.45;cursor:not-allowed}
+.video-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}
+.video-tile{position:relative;min-height:130px;background:#08080d;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.video-tile video{width:100%;height:100%;min-height:130px;object-fit:cover}
+.video-tile .video-label{position:absolute;bottom:7px;inset-inline-start:8px;background:#000b;border-radius:7px;padding:4px 8px;font-size:11px;z-index:1}
+.video-tile .video-placeholder{color:var(--muted);font-size:12px}
