@@ -86,6 +86,13 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal(status.maxUsers, 6);
   assert.equal(status.maxCallParticipants, 6);
 
+  const invalidSetup = await request("/api/setup", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "wrong_owner", password: "owner-password-123", setupToken: "wrong" })
+  });
+  assert.equal(invalidSetup.status, 403);
+  assert.equal((await invalidSetup.json()).error, "INVALID_SETUP_TOKEN");
+
   const ownerResponse = await request("/api/setup", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -95,6 +102,12 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   const ownerCookie = cookieFrom(ownerResponse);
   const owner = (await ownerResponse.json()).user;
   assert.equal(owner.role, "owner");
+  const secondOwnerSetup = await request("/api/setup", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "second_owner", password: "owner-password-123", setupToken: "test-owner-setup-token-very-long" })
+  });
+  assert.equal(secondOwnerSetup.status, 409);
+  assert.equal((await secondOwnerSetup.json()).error, "OWNER_ALREADY_EXISTS");
 
   const meResponse = await request("/api/me", { headers: { cookie: ownerCookie } });
   assert.equal(meResponse.status, 200);
@@ -117,6 +130,7 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
     return (await response.json()).invitation;
   };
   const memberInvitation = await createInvitation();
+  assert.equal(new Date(memberInvitation.expiresAt).getTime() - new Date(memberInvitation.createdAt).getTime(), 96 * 60 * 60 * 1000);
   const memberResponse = await request("/api/register", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -282,6 +296,7 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal(invitationListResponse.status, 200);
   const invitationList = (await invitationListResponse.json()).invitations;
   assert.ok(invitationList.some((item) => item.id === memberInvitation.id && item.status === "used"));
+  assert.equal(JSON.stringify(invitationList).includes(memberInvitation.code), false);
 
   const usersResponse = await request("/api/users", { headers: { cookie: ownerCookie } });
   assert.equal(usersResponse.status, 200);
