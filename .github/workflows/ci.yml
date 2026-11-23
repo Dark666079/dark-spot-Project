@@ -22,3 +22,5 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Check JavaScript syntax
         run: npm run check
+      - name: Run MVP integration tests
+        run: npm test
