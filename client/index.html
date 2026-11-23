@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09090d">
+  <title>Dark-Spot</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/">DARK<span>·</span>SPOT</a>
+      <button id="languageButton" class="quiet-button" type="button">English</button>
+    </header>
+
+    <section id="authPanel" class="panel auth-panel">
+      <p class="eyebrow" data-i18n="privateSpace">PRIVATE SPACE</p>
+      <h1 data-i18n="welcome">به فضای خصوصی خودت خوش آمدی</h1>
+      <p class="muted" data-i18n="authHint">برای ورود یا ساخت حساب، اطلاعاتت را وارد کن.</p>
+      <form id="authForm">
+        <label for="username" data-i18n="username">نام کاربری</label>
+        <input id="username" name="username" minlength="3" maxlength="20" autocomplete="username" required>
+        <label for="password" data-i18n="password">رمز عبور</label>
+        <input id="password" name="password" type="password" minlength="8" autocomplete="current-password" required>
+        <div class="actions">
+          <button class="primary" id="loginButton" type="submit" data-i18n="login">ورود</button>
+          <button class="secondary" id="registerButton" type="button" data-i18n="register">ساخت حساب</button>
+        </div>
+      </form>
+      <p id="authError" class="error" role="alert"></p>
+      <p class="hint" data-i18n="firstAccount">اولین حسابی که ساخته شود، مالک اصلی خواهد بود.</p>
+    </section>
+
+    <section id="chatPanel" class="panel chat-panel" hidden>
+      <div class="chat-heading">
+        <div><p class="eyebrow" data-i18n="community">PRIVATE COMMUNITY</p><h1 data-i18n="mainRoom">گفت‌وگوی اصلی</h1></div>
+        <div class="user-tools"><span id="currentUser" class="muted"></span><button id="logoutButton" class="quiet-button" data-i18n="logout">خروج</button></div>
+      </div>
+      <div id="messages" class="messages" aria-live="polite"></div>
+      <form id="messageForm" class="message-form">
+        <input id="messageInput" maxlength="2000" autocomplete="off" placeholder="پیامت را بنویس..." data-i18n-placeholder="messagePlaceholder" required>
+        <button class="primary send-button" type="submit" data-i18n="send">ارسال</button>
+      </form>
+      <p class="hint" data-i18n="mvpNotice">نسخه اولیه: پیام‌ها ذخیره می‌شوند؛ تماس صوتی و تصویری در مرحله بعد اضافه می‌شود.</p>
+    </section>
+    <footer>Dark-Spot <span>·</span> <span data-i18n="footer">فضای خصوصی دوستان</span></footer>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
