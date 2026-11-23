@@ -468,8 +468,14 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(ownerCannotEditMemberMessage.status, 404);
 
+  const ordinaryMemberLogin = await request("/api/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "member_3", password: "member-password-123" })
+  });
+  assert.equal(ordinaryMemberLogin.status, 200);
+  const ordinaryMemberCookie = cookieFrom(ordinaryMemberLogin);
   const memberCannotDeleteMessage = await request("/api/messages/" + memberMessage.id, {
-    method: "DELETE", headers: { cookie: refreshedMemberCookie }
+    method: "DELETE", headers: { cookie: ordinaryMemberCookie }
   });
   assert.equal(memberCannotDeleteMessage.status, 403);
 
