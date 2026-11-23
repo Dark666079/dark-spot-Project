@@ -11,7 +11,7 @@ let child = null;
 let childOutput = "";
 let stopping = false;
 
-const page = (status) => \`<!doctype html>
+const page = (status) => `<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -21,21 +21,21 @@ const page = (status) => \`<!doctype html>
 main{width:min(100%,440px);background:#1b2130;border:1px solid #30394c;border-radius:18px;padding:26px;box-shadow:0 18px 60px #0005}
 h1{font-size:23px;margin:0 0 8px}.muted{color:#aeb8ca;font-size:14px;line-height:1.9}
 .status{margin:22px 0;padding:14px;border-radius:12px;background:#111722;display:flex;justify-content:space-between;align-items:center}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:\${status.running ? "#36c98b" : "#e5a84b"};margin-left:8px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:${status.running ? "#36c98b" : "#e5a84b"};margin-left:8px}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:bold;cursor:pointer}
 #start{background:#247b59;color:white}#stop{background:#8e3b47;color:white}button:disabled{opacity:.4;cursor:not-allowed}
 #message{min-height:28px;margin-top:16px;color:#b9c6dc;font-size:13px;line-height:1.8}
 </style></head><body><main>
 <h1>Dark-Spot Launcher</h1><div class="muted">کنترل سرور فقط روی همین لپ‌تاپ</div>
-<div class="status"><span>وضعیت سرور</span><strong><i class="dot"></i>\${status.running ? "روشن" : "خاموش"}</strong></div>
-<div class="actions"><button id="start" \${status.running ? "disabled" : ""}>روشن کردن</button><button id="stop" \${status.running ? "" : "disabled"}>خاموش کردن</button></div>
+<div class="status"><span>وضعیت سرور</span><strong><i class="dot"></i>${status.running ? "روشن" : "خاموش"}</strong></div>
+<div class="actions"><button id="start" ${status.running ? "disabled" : ""}>روشن کردن</button><button id="stop" ${status.running ? "" : "disabled"}>خاموش کردن</button></div>
 <div id="message">این صفحه را فقط روی لپ‌تاپ هاست باز کن.</div>
 </main><script>
-const key=\${JSON.stringify(token)};
+const key=${JSON.stringify(token)};
 async function act(action){const m=document.querySelector("#message");m.textContent="در حال انجام...";try{const r=await fetch("/control/"+action,{method:"POST",headers:{"x-launcher-token":key}});const d=await r.json();if(!r.ok)throw new Error(d.error||"خطا");m.textContent=d.message;setTimeout(()=>location.reload(),700)}catch(e){m.textContent="خطا: "+e.message}}
 document.querySelector("#start").onclick=()=>act("start");
 document.querySelector("#stop").onclick=()=>act("stop");
-</script></body></html>\`;
+</script></body></html>`;
 
 function status() { return { running: Boolean(child && child.exitCode === null), pid: child?.pid || null }; }
 
@@ -47,7 +47,7 @@ function startServer() {
     cwd: ROOT,
     env: {
       ...process.env,
-      DARKSPOT_LAUNCHER_URL: \`http://\${HOST}:\${PORT}\`,
+      DARKSPOT_LAUNCHER_URL: `http://${HOST}:${PORT}`,
       DARKSPOT_LAUNCHER_TOKEN: token
     },
     stdio: ["ignore", "pipe", "pipe"]
@@ -76,7 +76,7 @@ function send(res, code, value) {
 
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin;
-  if (origin && origin !== \`http://\${HOST}:\${PORT}\`) return send(res, 403, { error: "ORIGIN_FORBIDDEN" });
+  if (origin && origin !== `http://${HOST}:${PORT}`) return send(res, 403, { error: "ORIGIN_FORBIDDEN" });
   if (req.method === "GET" && req.url === "/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
     return res.end(page(status()));
@@ -98,12 +98,22 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(\`Dark-Spot Launcher: http://\${HOST}:\${PORT}\`);
+  console.log(`Dark-Spot Launcher: http://${HOST}:${PORT}`);
 });
 server.on("error", error => {
   console.error("Launcher could not start:", error.message);
   process.exitCode = 1;
 });
 
-process.on("SIGINT", () => { stopServer(); server.close(() => process.exit(0)); });
-process.on("SIGTERM", () => { stopServer(); server.close(() => process.exit(0)); });
+function closeLauncher() {
+  const current = child;
+  if (current && current.exitCode === null) {
+    stopServer();
+    current.once("exit", () => server.close(() => process.exit(0)));
+    setTimeout(() => process.exit(1), 7000).unref();
+    return;
+  }
+  server.close(() => process.exit(0));
+}
+process.on("SIGINT", closeLauncher);
+process.on("SIGTERM", closeLauncher);
