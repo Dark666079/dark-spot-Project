@@ -24,7 +24,6 @@ const { registerRealtime } = require("./realtime");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-registerRealtime({ io, db, sessionMiddleware });
 const sessionMiddleware = session({
   name: "darkspot.sid",
   secret: SESSION_SECRET,
@@ -37,6 +36,8 @@ const sessionMiddleware = session({
     maxAge: 7 * 24 * 60 * 60 * 1000
   }
 });
+
+registerRealtime({ io, db, sessionMiddleware });
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "20kb" }));
