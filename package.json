@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "check": "node --check server/server.js && node --check client/app.js",
+    "check": "node --check server/server.js && node --check server/config/index.js && node --check server/db/index.js && node --check client/app.js",
     "test": "node --test"
   },
   "engines": {
