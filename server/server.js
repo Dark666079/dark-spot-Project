@@ -305,9 +305,36 @@ app.patch("/api/account-change-requests/:id", requireAuth, requireOwner, (req, r
 
 app.get("/api/messages", requireAuth, (_req, res) => {
   const messages = db.prepare(
-    "SELECT id, username, body, created_at AS createdAt FROM messages ORDER BY id DESC LIMIT 100"
+    "SELECT id, user_id AS userId, username, body, created_at AS createdAt, edited_at AS editedAt FROM messages ORDER BY id DESC LIMIT 100"
   ).all().reverse();
   res.json({ messages });
+});
+
+app.patch("/api/messages/:id", requireAuth, (req, res) => {
+  const body = String(req.body.body || "").trim();
+  if (!body || body.length > 2000) return res.status(400).json({ error: "MESSAGE_RULES" });
+  const messageId = Number(req.params.id);
+  if (!Number.isSafeInteger(messageId) || messageId < 1) return res.status(400).json({ error: "MESSAGE_NOT_FOUND" });
+  const result = db.prepare(
+    "UPDATE messages SET body = ?, edited_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?"
+  ).run(body, messageId, req.session.user.id);
+  if (!result.changes) return res.status(404).json({ error: "MESSAGE_NOT_FOUND_OR_FORBIDDEN" });
+  const message = db.prepare(
+    "SELECT id, user_id AS userId, username, body, created_at AS createdAt, edited_at AS editedAt FROM messages WHERE id = ?"
+  ).get(messageId);
+  io.to("main-room").emit("chat:updated", message);
+  res.json({ message });
+});
+
+app.delete("/api/messages/:id", requireAuth, (req, res) => {
+  const actor = db.prepare("SELECT role FROM users WHERE id = ?").get(req.session.user.id);
+  if (!actor || !["owner", "admin"].includes(actor.role)) return res.status(403).json({ error: "ADMIN_REQUIRED" });
+  const messageId = Number(req.params.id);
+  if (!Number.isSafeInteger(messageId) || messageId < 1) return res.status(400).json({ error: "MESSAGE_NOT_FOUND" });
+  const result = db.prepare("DELETE FROM messages WHERE id = ?").run(messageId);
+  if (!result.changes) return res.status(404).json({ error: "MESSAGE_NOT_FOUND" });
+  io.to("main-room").emit("chat:deleted", { id: messageId });
+  res.json({ ok: true, id: messageId });
 });
 
 app.get("/api/users", requireAuth, requireOwner, (_req, res) => {
