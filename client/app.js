@@ -25,7 +25,9 @@ let ownerSetupMode = false;
 let inCall = false;
 let localStream = null;
 let audioEnabled = false;
-let videoEnabled = false;\nlet audioBlockedByHost = false;\nlet videoBlockedByHost = false;
+let videoEnabled = false;
+let audioBlockedByHost = false;
+let videoBlockedByHost = false;\nlet audioBlockedByHost = false;\nlet videoBlockedByHost = false;
 const peerConnections = new Map();
 const remoteTiles = new Map();
 const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -113,9 +115,21 @@ function connectSocket() {
     if (inCall) participants.forEach((participant) => { if (participant.userId !== currentUser.id) ensurePeer(participant); });
   });
   socket.on("call:participant-left", ({ userId }) => closePeer(userId));
-  socket.on("call:media-state", ({ userId, audioEnabled: audio, videoEnabled: video }) => {
-    const tile = remoteTiles.get(userId);
-    if (tile) tile.label.textContent = tile.username + (audio ? " · 🎙" : " · 🔇") + (video ? " · 📷" : " · ▫");
+  socket.on("call:media-state", (state) => {
+    const tile = remoteTiles.get(state.userId);
+    if (!tile) return;
+    tile.audioBlockedByHost = state.audioBlockedByHost === true;
+    tile.videoBlockedByHost = state.videoBlockedByHost === true;
+    tile.label.textContent = tile.username + (state.audioEnabled ? " · 🎙" : " · 🔇") + (state.videoEnabled ? " · 📷" : " · ▫");
+    renderHostControls(tile, state.userId);
+  });
+  socket.on("call:moderation", async ({ kind, blocked }) => {
+    if (kind === "audio") audioBlockedByHost = blocked;
+    if (kind === "video") videoBlockedByHost = blocked;
+    if (blocked) await stopLocalMedia(kind);
+    updateCallControls();
+    $("callStatus").textContent = blocked ? callText("hostBlocked") : callText("callConnected");
+    socket.emit("call:media-state", { audioEnabled, videoEnabled });
   });
   socket.on("call:signal", ({ fromUserId, signal }) => handleSignal(fromUserId, signal));
   socket.on("call:error", ({ error }) => {
@@ -297,10 +311,27 @@ function updateCallControls() {
   $("leaveCallButton").disabled = !inCall;
   $("joinCallButton").textContent = callText("joinCall");
   $("leaveCallButton").textContent = callText("leaveCall");
-  $("audioButton").disabled = !inCall;
-  $("videoButton").disabled = !inCall;
+  $("audioButton").disabled = !inCall || audioBlockedByHost;
+  $("videoButton").disabled = !inCall || videoBlockedByHost;
   $("audioButton").textContent = callText(audioEnabled ? "micOn" : "micOff");
   $("videoButton").textContent = callText(videoEnabled ? "cameraOn" : "cameraOff");
+}
+function renderHostControls(tile, userId) {
+  if (currentUser?.role !== "owner") return;
+  if (!tile.hostControls) {
+    tile.hostControls = document.createElement("div");
+    tile.hostControls.className = "host-media-controls";
+    tile.audioControl = document.createElement("button");
+    tile.videoControl = document.createElement("button");
+    tile.audioControl.type = tile.videoControl.type = "button";
+    tile.audioControl.className = tile.videoControl.className = "quiet-button";
+    tile.hostControls.append(tile.audioControl, tile.videoControl);
+    tile.root.append(tile.hostControls);
+    tile.audioControl.addEventListener("click", () => socket.emit("call:moderate-media", { targetUserId: userId, kind: "audio", blocked: !tile.audioBlockedByHost }));
+    tile.videoControl.addEventListener("click", () => socket.emit("call:moderate-media", { targetUserId: userId, kind: "video", blocked: !tile.videoBlockedByHost }));
+  }
+  tile.audioControl.textContent = callText(tile.audioBlockedByHost ? "hostUnmuteAudio" : "hostMuteAudio");
+  tile.videoControl.textContent = callText(tile.videoBlockedByHost ? "hostEnableVideo" : "hostDisableVideo");
 }
 function renderHostControls(tile, userId) {
   if (currentUser?.role !== "owner") return;
@@ -327,7 +358,10 @@ function ensureTile(userId, username, participant = {}) {
   const label = document.createElement("span"); label.className = "video-label"; label.textContent = username;
   const placeholder = document.createElement("span"); placeholder.className = "video-placeholder"; placeholder.textContent = username;
   root.append(video, placeholder, label); $("videoGrid").append(root);
-  tile = { root, video, label, placeholder, username }; remoteTiles.set(userId, tile); return tile;
+  tile = { root, video, label, placeholder, username, audioBlockedByHost: participant.audioBlockedByHost === true, videoBlockedByHost: participant.videoBlockedByHost === true };
+  remoteTiles.set(userId, tile);
+  renderHostControls(tile, userId);
+  return tile;
 }
 function closePeer(userId) {
   const pc = peerConnections.get(userId);
@@ -413,8 +447,26 @@ async function leaveCall() {
   $("callStatus").textContent = callText("callReady");
   updateCallControls();
 }
+async function stopLocalMedia(kind) {
+  if (!localStream) return;
+  const track = localStream.getTracks().find(item => item.kind === kind);
+  if (track) {
+    track.stop();
+    localStream.removeTrack(track);
+    peerConnections.forEach(({ pc }) => {
+      const sender = pc.getSenders().find(item => item.track === track);
+      if (sender) pc.removeTrack(sender);
+    });
+  }
+  if (kind === "audio") audioEnabled = false;
+  else videoEnabled = false;
+}
 async function setMedia(kind, enabled) {
   if (!inCall) return;
+  if (enabled && ((kind === "audio" && audioBlockedByHost) || (kind === "video" && videoBlockedByHost))) {
+    $("callStatus").textContent = callText("hostBlocked");
+    return;
+  }
   try {
     const constraints = kind === "audio" ? { audio: true, video: false } : { audio: false, video: true };
     if (!localStream) localStream = new MediaStream();
@@ -425,12 +477,7 @@ async function setMedia(kind, enabled) {
       localStream.addTrack(track);
       peerConnections.forEach(({ pc }) => pc.addTrack(track, localStream));
     } else if (!enabled && existing) {
-      existing.stop();
-      localStream.removeTrack(existing);
-      peerConnections.forEach(({ pc }) => {
-        const sender = pc.getSenders().find((item) => item.track === existing);
-        if (sender) pc.removeTrack(sender);
-      });
+      await stopLocalMedia(kind);
     }
     if (kind === "audio") audioEnabled = enabled;
     else videoEnabled = enabled;
