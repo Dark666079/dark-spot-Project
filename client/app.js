@@ -3,7 +3,7 @@ const translations = {
     privateSpace:"PRIVATE SPACE",welcome:"به فضای خصوصی خودت خوش آمدی",authHint:"برای ورود یا ساخت حساب، اطلاعاتت را وارد کن.",
     invitationCode:"کد دعوت",setupToken:"کلید راه‌اندازی مالک",inviteHint:"برای ساخت حساب به دعوت‌نامه معتبر نیاز داری.",setupHint:"راه‌اندازی اولیه: کلید امن مالک را وارد کن.",invitationInvalid:"کد دعوت معتبر نیست، منقضی شده یا قبلاً استفاده شده است.",setupInvalid:"کلید راه‌اندازی مالک نادرست است.",ownerSetupDisabled:"راه‌اندازی مالک روی سرور فعال نشده است.",invitationManagement:"مدیریت دعوت‌نامه‌ها",createInvitation:"ساخت دعوت‌نامه",invitationCreated:"کد دعوت (فقط همین بار نمایش داده می‌شود):",copyCode:"کپی کد",invitationActive:"فعال",invitationUsed:"استفاده‌شده",invitationExpired:"منقضی‌شده",invitationRevoked:"باطل‌شده",revokeInvitation:"باطل‌کردن",invitationCapacity:"ظرفیت باقی‌مانده برای دعوت‌نامه کافی نیست.",
     username:"نام کاربری",password:"رمز عبور",login:"ورود",register:"ساخت حساب",firstAccount:"اولین حسابی که ساخته شود، مالک اصلی خواهد بود.",
-    community:"PRIVATE COMMUNITY",mainRoom:"گفت‌وگوی اصلی",logout:"خروج",messagePlaceholder:"پیامت را بنویس...",send:"ارسال",
+    community:"PRIVATE COMMUNITY",mainRoom:"گفت‌وگوی اصلی",logout:"خروج",messagePlaceholder:"پیامت را بنویس...",send:"ارسال",editMessage:"ویرایش",deleteMessage:"حذف برای همه",edited:"ویرایش‌شده",confirmDelete:"این پیام برای همه حذف شود؟",editPrompt:"متن جدید پیام را وارد کن:",messageRules:"پیام نمی‌تواند خالی یا بیشتر از ۲۰۰۰ نویسه باشد.",
     mvpNotice:"پیام‌ها ذخیره می‌شوند و تماس گروهی در دسترس است.",callsTitle:"تماس گروهی",joinCall:"ورود به تماس",leaveCall:"خروج از تماس",micOn:"خاموش‌کردن میکروفون",micOff:"روشن‌کردن میکروفون",cameraOn:"خاموش‌کردن دوربین",cameraOff:"روشن‌کردن دوربین",callReady:"برای ورود به تماس گروهی دکمه شروع را بزن.",callConnected:"به تماس گروهی متصل شدی.",callFull:"ظرفیت تماس تکمیل است.",callAlready:"این حساب از قبل وارد تماس شده است.",callFailed:"اتصال تماس برقرار نشد.",mediaDenied:"دسترسی میکروفون یا دوربین داده نشد.",hostBlocked:"هاست دسترسی این رسانه را موقتاً قطع کرده است.",hostMuteAudio:"قطع صدای کاربر",hostUnmuteAudio:"آزادکردن میکروفون",hostDisableVideo:"قطع تصویر کاربر",hostEnableVideo:"آزادکردن دوربین",footer:"فضای خصوصی دوستان",
     invalid:"نام کاربری یا رمز عبور معتبر نیست.",taken:"این نام کاربری قبلاً استفاده شده است.",limit:"ظرفیت ساخت حساب تکمیل شده است.",
     passwordRules:"رمز عبور باید حداقل ۸ نویسه باشد.",accountSettings:"تغییر اطلاعات حساب",changeType:"نوع تغییر",changeUsername:"نام کاربری",changePassword:"رمز عبور",currentPassword:"رمز عبور فعلی",newUsername:"نام کاربری جدید",newPassword:"رمز عبور جدید",sendRequest:"ارسال درخواست به هاست",pendingRequests:"درخواست‌های در انتظار تأیید",requestSent:"درخواست ارسال شد؛ منتظر تأیید هاست بمان.",requestPending:"یک درخواست در انتظار بررسی داری.",currentPasswordInvalid:"رمز عبور فعلی درست نیست.",sameUsername:"نام کاربری جدید باید با نام فعلی متفاوت باشد.",requestResultApproved:"هاست درخواستت را تأیید کرد.",requestResultRejected:"هاست درخواستت را رد کرد.",approve:"تأیید",reject:"رد",network:"ارتباط با سرور برقرار نشد.",usernameRules:"نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا _ باشد."
@@ -12,7 +12,7 @@ const translations = {
     privateSpace:"PRIVATE SPACE",welcome:"Welcome to your private space",authHint:"Enter your details to sign in or create an account.",
     invitationCode:"Invitation code",setupToken:"Owner setup key",inviteHint:"A valid invitation is required to create an account.",setupHint:"Initial setup: enter the secure owner key.",invitationInvalid:"The invitation is invalid, expired, or already used.",setupInvalid:"The owner setup key is incorrect.",ownerSetupDisabled:"Owner setup is not enabled on the server.",invitationManagement:"Invitation management",createInvitation:"Create invitation",invitationCreated:"Invitation code (shown only once):",copyCode:"Copy code",invitationActive:"Active",invitationUsed:"Used",invitationExpired:"Expired",invitationRevoked:"Revoked",revokeInvitation:"Revoke",invitationCapacity:"There is not enough remaining account capacity for another invitation.",
     username:"Username",password:"Password",login:"Sign in",register:"Create account",firstAccount:"The first account created becomes the owner.",
-    community:"PRIVATE COMMUNITY",mainRoom:"Main chat",logout:"Log out",messagePlaceholder:"Write a message...",send:"Send",
+    community:"PRIVATE COMMUNITY",mainRoom:"Main chat",logout:"Log out",messagePlaceholder:"Write a message...",send:"Send",editMessage:"Edit",deleteMessage:"Delete for everyone",edited:"Edited",confirmDelete:"Delete this message for everyone?",editPrompt:"Enter the updated message:",messageRules:"Message must contain 1–2000 characters.",
     mvpNotice:"Messages are saved and group calling is available.",callsTitle:"Group call",joinCall:"Join call",leaveCall:"Leave call",micOn:"Turn microphone off",micOff:"Turn microphone on",cameraOn:"Turn camera off",cameraOff:"Turn camera on",callReady:"Press Join to enter the group call.",callConnected:"You joined the group call.",callFull:"The call is full.",callAlready:"This account is already in the call.",callFailed:"The call could not connect.",mediaDenied:"Microphone or camera permission was denied.",hostBlocked:"The host has temporarily disabled this media.",hostMuteAudio:"Mute user microphone",hostUnmuteAudio:"Allow microphone",hostDisableVideo:"Disable user camera",hostEnableVideo:"Allow camera",footer:"A private space for friends",
     invalid:"Enter a valid username and password.",taken:"That username is already taken.",limit:"The account limit has been reached.",
     passwordRules:"Password must be at least 8 characters.",accountSettings:"Account settings",changeType:"Change type",changeUsername:"Username",changePassword:"Password",currentPassword:"Current password",newUsername:"New username",newPassword:"New password",sendRequest:"Send request to host",pendingRequests:"Pending approval requests",requestSent:"Request sent. Wait for the host's approval.",requestPending:"You already have a pending request.",currentPasswordInvalid:"Your current password is incorrect.",sameUsername:"Choose a username different from your current one.",requestResultApproved:"The host approved your request.",requestResultRejected:"The host rejected your request.",approve:"Approve",reject:"Reject",network:"Could not connect to the server.",usernameRules:"Username must be 3–20 characters: English letters, numbers or _."
@@ -79,7 +79,8 @@ function showChat(user) {
 
 function addMessage(message) {
   const node = document.createElement("article");
-  node.className = "message" + (currentUser && message.username === currentUser.username ? " mine" : "");
+  node.className = "message" + (currentUser && message.userId === currentUser.id ? " mine" : "");
+  node.dataset.messageId = message.id;
   const name = document.createElement("strong");
   name.textContent = message.username;
   const body = document.createElement("p");
@@ -89,8 +90,54 @@ function addMessage(message) {
   const isoTimestamp = storedTimestamp.endsWith("Z") ? storedTimestamp : storedTimestamp + "Z";
   time.textContent = new Date(isoTimestamp).toLocaleString(language === "fa" ? "fa-IR" : "en");
   node.append(name, body, time);
+  if (message.editedAt) {
+    const edited = document.createElement("small");
+    edited.className = "message-edited";
+    edited.textContent = translations[language].edited;
+    node.append(edited);
+  }
+  const actions = document.createElement("div");
+  actions.className = "message-actions";
+  if (currentUser && message.userId === currentUser.id) {
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "quiet-button";
+    edit.textContent = translations[language].editMessage;
+    edit.addEventListener("click", async () => {
+      const nextBody = window.prompt(translations[language].editPrompt, message.body);
+      if (nextBody === null) return;
+      try { await api("/api/messages/" + message.id, { method:"PATCH", body:JSON.stringify({ body:nextBody }) }); }
+      catch (error) { window.alert(errorText(error.message)); }
+    });
+    actions.append(edit);
+  }
+  if (currentUser && ["owner","admin"].includes(currentUser.role)) {
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "quiet-button danger-button";
+    remove.textContent = translations[language].deleteMessage;
+    remove.addEventListener("click", async () => {
+      if (!window.confirm(translations[language].confirmDelete)) return;
+      try { await api("/api/messages/" + message.id, { method:"DELETE" }); }
+      catch (error) { window.alert(errorText(error.message)); }
+    });
+    actions.append(remove);
+  }
+  if (actions.childElementCount) node.append(actions);
   $("messages").append(node);
   $("messages").scrollTop = $("messages").scrollHeight;
+}
+function updateMessage(message) {
+  const oldNode = $("messages").querySelector('[data-message-id="' + message.id + '"]');
+  if (!oldNode) return addMessage(message);
+  oldNode.remove();
+  const previousScroll = $("messages").scrollTop;
+  addMessage(message);
+  $("messages").scrollTop = previousScroll;
+}
+function deleteMessage(messageId) {
+  const node = $("messages").querySelector('[data-message-id="' + messageId + '"]');
+  if (node) node.remove();
 }
 
 async function loadMessages() {
@@ -107,6 +154,8 @@ function connectSocket() {
   if (socket) socket.disconnect();
   socket = io();
   socket.on("chat:message", addMessage);
+  socket.on("chat:updated", updateMessage);
+  socket.on("chat:deleted", ({ id }) => deleteMessage(id));
   socket.on("call:joined", handleCallJoined);
   socket.on("call:participant-joined", ({ participant }) => {
     if (inCall && participant) ensurePeer(participant);
