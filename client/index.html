@@ -50,6 +50,17 @@
         </form></section>
       <section id="ownerRequestsPanel" class="account-tools" hidden><h2 data-i18n="pendingRequests">درخواست‌های در انتظار تأیید</h2><div id="ownerRequests"></div></section>
       <section id="ownerInvitationsPanel" class="account-tools" hidden><h2 data-i18n="invitationManagement">مدیریت دعوت‌نامه‌ها</h2><button id="createInvitationButton" class="secondary" type="button" data-i18n="createInvitation">ساخت دعوت‌نامه</button><p id="newInvitationCode" class="hint" role="status"></p><div id="ownerInvitations"></div></section>
+      <section id="callPanel" class="account-tools call-panel">
+        <h2 data-i18n="callsTitle">تماس گروهی</h2>
+        <p id="callStatus" class="hint" role="status">برای ورود به تماس گروهی دکمه شروع را بزن.</p>
+        <div class="call-controls">
+          <button id="joinCallButton" class="primary" type="button">ورود به تماس</button>
+          <button id="leaveCallButton" class="quiet-button" type="button" disabled>خروج از تماس</button>
+          <button id="audioButton" class="secondary" type="button" disabled>روشن‌کردن میکروفون</button>
+          <button id="videoButton" class="secondary" type="button" disabled>روشن‌کردن دوربین</button>
+        </div>
+        <div id="videoGrid" class="video-grid"></div>
+      </section>
       <div id="messages" class="messages" aria-live="polite"></div>
       <form id="messageForm" class="message-form">
         <input id="messageInput" maxlength="2000" autocomplete="off" placeholder="پیامت را بنویس..." data-i18n-placeholder="messagePlaceholder" required>
