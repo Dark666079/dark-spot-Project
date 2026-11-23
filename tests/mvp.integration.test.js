@@ -158,6 +158,12 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(reservedNameRegistration.status, 409);
   assert.equal((await reservedNameRegistration.json()).error, "USERNAME_TAKEN");
+  for (const invitation of [duplicateNameInvitation, reservedNameInvitation]) {
+    const releaseInvitation = await request("/api/invitations/" + invitation.id, {
+      method: "DELETE", headers: { cookie: ownerCookie }
+    });
+    assert.equal(releaseInvitation.status, 200);
+  }
   const competingUsernameRequest = await request("/api/account-change-requests", {
     method: "POST",
     headers: { cookie: ownerCookie, "content-type": "application/json" },
