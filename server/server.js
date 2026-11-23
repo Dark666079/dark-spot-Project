@@ -38,6 +38,15 @@ db.exec(`
     body TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS account_change_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    change_type TEXT NOT NULL CHECK(change_type IN ('username','password')),
+    proposed_username TEXT,
+    proposed_password_hash TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 const app = express();
@@ -167,6 +176,56 @@ app.get("/api/me", requireAuth, (req, res) => {
   res.json({ user: publicUser(user) });
 });
 
+
+app.post("/api/account-change-requests", requireAuth, async (req, res) => {
+  const type = req.body.type;
+  const currentPassword = String(req.body.currentPassword || "");
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.session.user.id);
+  if (!user || !(await bcrypt.compare(currentPassword, user.password_hash))) return res.status(401).json({ error: "CURRENT_PASSWORD_INVALID" });
+  let proposedUsername = null, proposedPasswordHash = null;
+  if (type === "username") {
+    proposedUsername = String(req.body.newUsername || "").trim();
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(proposedUsername)) return res.status(400).json({ error: "USERNAME_RULES" });
+    if (proposedUsername.toLowerCase() === user.username.toLowerCase()) return res.status(400).json({ error: "SAME_USERNAME" });
+    if (db.prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE").get(proposedUsername)) return res.status(409).json({ error: "USERNAME_TAKEN" });
+  } else if (type === "password") {
+    const newPassword = String(req.body.newPassword || "");
+    if (newPassword.length < 8 || newPassword.length > 72) return res.status(400).json({ error: "PASSWORD_RULES" });
+    proposedPasswordHash = await bcrypt.hash(newPassword, 12);
+  } else return res.status(400).json({ error: "INVALID_CHANGE_TYPE" });
+  if (db.prepare("SELECT id FROM account_change_requests WHERE user_id = ? AND status = 'pending'").get(user.id)) return res.status(409).json({ error: "REQUEST_ALREADY_PENDING" });
+  const result = db.prepare("INSERT INTO account_change_requests (user_id, change_type, proposed_username, proposed_password_hash) VALUES (?, ?, ?, ?)").run(user.id, type, proposedUsername, proposedPasswordHash);
+  const request = { id:Number(result.lastInsertRowid), userId:user.id, username:user.username, type, proposedUsername };
+  io.to("owner-room").emit("account-change:request", request);
+  res.status(201).json({ ok:true, requestId:request.id, status:"pending" });
+});
+
+app.get("/api/account-change-requests", requireAuth, requireOwner, (_req, res) => {
+  const requests = db.prepare(`SELECT r.id, r.user_id AS userId, u.username, r.change_type AS type, r.proposed_username AS proposedUsername, r.created_at AS createdAt FROM account_change_requests r JOIN users u ON u.id = r.user_id WHERE r.status = 'pending' ORDER BY r.id`).all();
+  res.json({ requests });
+});
+
+app.patch("/api/account-change-requests/:id", requireAuth, requireOwner, (req, res) => {
+  const decision = req.body.decision;
+  if (!["approve","reject"].includes(decision)) return res.status(400).json({ error:"INVALID_DECISION" });
+  const request = db.prepare("SELECT * FROM account_change_requests WHERE id = ? AND status = 'pending'").get(Number(req.params.id));
+  if (!request) return res.status(404).json({ error:"REQUEST_NOT_FOUND" });
+  try {
+    db.transaction(() => {
+      if (decision === "approve") {
+        if (request.change_type === "username") db.prepare("UPDATE users SET username = ? WHERE id = ?").run(request.proposed_username, request.user_id);
+        else db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(request.proposed_password_hash, request.user_id);
+      }
+      db.prepare("UPDATE account_change_requests SET status = ? WHERE id = ?").run(decision === "approve" ? "approved" : "rejected", request.id);
+    })();
+  } catch (error) {
+    if (String(error.code).startsWith("SQLITE_CONSTRAINT")) return res.status(409).json({ error:"USERNAME_TAKEN" });
+    throw error;
+  }
+  io.to("user-" + request.user_id).emit("account-change:result", { requestId:request.id, decision, type:request.change_type });
+  res.json({ ok:true });
+});
+
 app.get("/api/messages", requireAuth, (_req, res) => {
   const messages = db.prepare(
     "SELECT id, username, body, created_at AS createdAt FROM messages ORDER BY id DESC LIMIT 100"
@@ -195,6 +254,8 @@ app.patch("/api/users/:id/role", requireAuth, requireOwner, (req, res) => {
 io.on("connection", (socket) => {
   const user = socket.request.session.user;
   socket.join("main-room");
+  if (user.role === "owner") socket.join("owner-room");
+  socket.join("user-" + user.id);
 
   socket.on("chat:send", (rawBody) => {
     const body = String(rawBody || "").trim();
