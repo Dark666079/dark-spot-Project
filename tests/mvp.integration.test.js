@@ -127,7 +127,6 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   const member = (await memberResponse.json()).user;
   assert.equal(member.role, "member");
 
-
   const badCurrentPassword = await request("/api/account-change-requests", {
     method: "POST",
     headers: { cookie: memberCookie, "content-type": "application/json" },
