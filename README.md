@@ -42,7 +42,7 @@ npm start
 
 Open http://localhost:3000.
 
-The SQLite database is created in `data/dark-spot.sqlite`. It stores accounts, messages, invitations, and persistent login sessions. Password approval increments the account session version and invalidates that user’s previous sessions. Socket chat is limited to 8 messages per 10 seconds per connection. On a fresh database, create the owner from the setup screen using `OWNER_SETUP_TOKEN`. Once the owner exists, the setup route is permanently closed for that database. The owner creates invitations from the owner panel; each invitation is single-use and expires exactly 96 hours after creation. Registration without a valid invitation is rejected. Do not expose the server publicly until HTTPS/tunnel configuration, HTTPS/tunnel configuration and further security testing are completed.
+The SQLite database is created in `data/dark-spot.sqlite`. It stores accounts, messages, invitations, and persistent login sessions. Password approval increments the account session version and invalidates that user’s previous sessions. Socket chat is limited to 8 messages per 10 seconds per connection. On a fresh database, create the owner from the setup screen using `OWNER_SETUP_TOKEN`. Once the owner exists, the setup route is permanently closed for that database. The owner creates invitations from the owner panel; each invitation is single-use and expires exactly 96 hours after creation. Registration without a valid invitation is rejected. Do not expose the server publicly until HTTPS/tunnel configuration and further security testing are completed.
 
 ## Hosting plan
 
