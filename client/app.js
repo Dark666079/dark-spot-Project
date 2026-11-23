@@ -44,6 +44,7 @@ function setLanguage(next) {
   });
   $("languageButton").textContent = next === "fa" ? "English" : "فارسی";
   if ($("registrationHint")) $("registrationHint").textContent = translations[next][ownerSetupMode ? "setupHint" : "inviteHint"];
+  if ($("joinCallButton")) updateCallControls();
 }
 
 function errorText(code) {
@@ -294,6 +295,8 @@ function callText(key) { return translations[language][key]; }
 function updateCallControls() {
   $("joinCallButton").disabled = inCall;
   $("leaveCallButton").disabled = !inCall;
+  $("joinCallButton").textContent = callText("joinCall");
+  $("leaveCallButton").textContent = callText("leaveCall");
   $("audioButton").disabled = !inCall;
   $("videoButton").disabled = !inCall;
   $("audioButton").textContent = callText(audioEnabled ? "micOn" : "micOff");
@@ -404,8 +407,13 @@ async function setMedia(kind, enabled) {
       const track = acquired.getTracks()[0];
       localStream.addTrack(track);
       peerConnections.forEach(({ pc }) => pc.addTrack(track, localStream));
-    } else if (existing) {
-      existing.enabled = enabled;
+    } else if (!enabled && existing) {
+      existing.stop();
+      localStream.removeTrack(existing);
+      peerConnections.forEach(({ pc }) => {
+        const sender = pc.getSenders().find((item) => item.track === existing);
+        if (sender) pc.removeTrack(sender);
+      });
     }
     if (kind === "audio") audioEnabled = enabled;
     else videoEnabled = enabled;
