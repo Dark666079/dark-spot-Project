@@ -109,6 +109,22 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   const member = (await memberResponse.json()).user;
   assert.equal(member.role, "member");
 
+  for (let index = 3; index <= 6; index += 1) {
+    const extraAccount = await request("/api/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "member_" + index, password: "member-password-123" })
+    });
+    assert.equal(extraAccount.status, 201);
+  }
+  const seventhAccount = await request("/api/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "seventh_user", password: "member-password-123" })
+  });
+  assert.equal(seventhAccount.status, 403);
+  assert.equal((await seventhAccount.json()).error, "USER_LIMIT");
+
   const forbiddenPromotion = await request("/api/users/" + member.id + "/role", {
     method: "PATCH",
     headers: { cookie: memberCookie, "content-type": "application/json" },
@@ -127,6 +143,14 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   assert.equal(usersResponse.status, 200);
   const users = (await usersResponse.json()).users;
   assert.equal(users.find((user) => user.id === member.id).role, "admin");
+
+  const anonymousSocket = createSocket(base, { reconnection: false, timeout: 5000 });
+  const anonymousError = await new Promise((resolve, reject) => {
+    anonymousSocket.once("connect_error", resolve);
+    anonymousSocket.once("connect", () => reject(new Error("Anonymous socket should not connect")));
+  });
+  assert.equal(anonymousError.message, "AUTH_REQUIRED");
+  anonymousSocket.disconnect();
 
   socket = createSocket(base, {
     extraHeaders: { Cookie: ownerCookie },
