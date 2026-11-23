@@ -293,6 +293,18 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(promotion.status, 200);
 
+  const adminLogin = await request("/api/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "member_renamed", password: "member-password-456" })
+  });
+  assert.equal(adminLogin.status, 200);
+  const adminCookie = cookieFrom(adminLogin);
+  assert.equal((await adminLogin.json()).user.role, "admin");
+  const adminInvitationAttempt = await request("/api/invitations", {
+    method: "POST", headers: { cookie: adminCookie, "content-type": "application/json" }, body: JSON.stringify({})
+  });
+  assert.equal(adminInvitationAttempt.status, 403);
+
   const invitationListResponse = await request("/api/invitations", { headers: { cookie: ownerCookie } });
   assert.equal(invitationListResponse.status, 200);
   const invitationList = (await invitationListResponse.json()).invitations;
