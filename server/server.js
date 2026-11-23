@@ -47,6 +47,8 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE UNIQUE INDEX IF NOT EXISTS one_pending_account_change_per_user
+    ON account_change_requests(user_id) WHERE status = 'pending';
 `);
 
 const app = express();
@@ -193,8 +195,13 @@ app.post("/api/account-change-requests", requireAuth, async (req, res) => {
     if (newPassword.length < 8 || newPassword.length > 72) return res.status(400).json({ error: "PASSWORD_RULES" });
     proposedPasswordHash = await bcrypt.hash(newPassword, 12);
   } else return res.status(400).json({ error: "INVALID_CHANGE_TYPE" });
-  if (db.prepare("SELECT id FROM account_change_requests WHERE user_id = ? AND status = 'pending'").get(user.id)) return res.status(409).json({ error: "REQUEST_ALREADY_PENDING" });
-  const result = db.prepare("INSERT INTO account_change_requests (user_id, change_type, proposed_username, proposed_password_hash) VALUES (?, ?, ?, ?)").run(user.id, type, proposedUsername, proposedPasswordHash);
+  let result;
+  try {
+    result = db.prepare("INSERT INTO account_change_requests (user_id, change_type, proposed_username, proposed_password_hash) VALUES (?, ?, ?, ?)").run(user.id, type, proposedUsername, proposedPasswordHash);
+  } catch (error) {
+    if (String(error.code).startsWith("SQLITE_CONSTRAINT")) return res.status(409).json({ error: "REQUEST_ALREADY_PENDING" });
+    throw error;
+  }
   const request = { id:Number(result.lastInsertRowid), userId:user.id, username:user.username, type, proposedUsername };
   io.to("owner-room").emit("account-change:request", request);
   res.status(201).json({ ok:true, requestId:request.id, status:"pending" });
@@ -208,20 +215,28 @@ app.get("/api/account-change-requests", requireAuth, requireOwner, (_req, res) =
 app.patch("/api/account-change-requests/:id", requireAuth, requireOwner, (req, res) => {
   const decision = req.body.decision;
   if (!["approve","reject"].includes(decision)) return res.status(400).json({ error:"INVALID_DECISION" });
-  const request = db.prepare("SELECT * FROM account_change_requests WHERE id = ? AND status = 'pending'").get(Number(req.params.id));
-  if (!request) return res.status(404).json({ error:"REQUEST_NOT_FOUND" });
+  let request;
   try {
-    db.transaction(() => {
+    request = db.transaction(() => {
+      const pending = db.prepare("SELECT * FROM account_change_requests WHERE id = ? AND status = 'pending'").get(Number(req.params.id));
+      if (!pending) return null;
       if (decision === "approve") {
-        if (request.change_type === "username") db.prepare("UPDATE users SET username = ? WHERE id = ?").run(request.proposed_username, request.user_id);
-        else db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(request.proposed_password_hash, request.user_id);
+        if (pending.change_type === "username") {
+          db.prepare("UPDATE users SET username = ? WHERE id = ?").run(pending.proposed_username, pending.user_id);
+        } else {
+          db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(pending.proposed_password_hash, pending.user_id);
+        }
       }
-      db.prepare("UPDATE account_change_requests SET status = ? WHERE id = ?").run(decision === "approve" ? "approved" : "rejected", request.id);
+      const updated = db.prepare("UPDATE account_change_requests SET status = ?, proposed_password_hash = NULL WHERE id = ? AND status = 'pending'")
+        .run(decision === "approve" ? "approved" : "rejected", pending.id);
+      if (updated.changes !== 1) return null;
+      return pending;
     })();
   } catch (error) {
     if (String(error.code).startsWith("SQLITE_CONSTRAINT")) return res.status(409).json({ error:"USERNAME_TAKEN" });
     throw error;
   }
+  if (!request) return res.status(404).json({ error:"REQUEST_NOT_FOUND" });
   io.to("user-" + request.user_id).emit("account-change:result", { requestId:request.id, decision, type:request.change_type });
   res.json({ ok:true });
 });
