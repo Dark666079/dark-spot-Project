@@ -1,6 +1,7 @@
 const translations = {
   fa: {
     privateSpace:"PRIVATE SPACE",welcome:"به فضای خصوصی خودت خوش آمدی",authHint:"برای ورود یا ساخت حساب، اطلاعاتت را وارد کن.",
+    invitationCode:"کد دعوت",setupToken:"کلید راه‌اندازی مالک",inviteHint:"برای ساخت حساب به دعوت‌نامه معتبر نیاز داری.",setupHint:"راه‌اندازی اولیه: کلید امن مالک را وارد کن.",invitationInvalid:"کد دعوت معتبر نیست، منقضی شده یا قبلاً استفاده شده است.",setupInvalid:"کلید راه‌اندازی مالک نادرست است.",ownerSetupDisabled:"راه‌اندازی مالک روی سرور فعال نشده است.",invitationManagement:"مدیریت دعوت‌نامه‌ها",createInvitation:"ساخت دعوت‌نامه",invitationCreated:"کد دعوت (فقط همین بار نمایش داده می‌شود):",copyCode:"کپی کد",invitationActive:"فعال",invitationUsed:"استفاده‌شده",invitationExpired:"منقضی‌شده",invitationRevoked:"باطل‌شده",revokeInvitation:"باطل‌کردن",invitationCapacity:"ظرفیت باقی‌مانده برای دعوت‌نامه کافی نیست.",
     username:"نام کاربری",password:"رمز عبور",login:"ورود",register:"ساخت حساب",firstAccount:"اولین حسابی که ساخته شود، مالک اصلی خواهد بود.",
     community:"PRIVATE COMMUNITY",mainRoom:"گفت‌وگوی اصلی",logout:"خروج",messagePlaceholder:"پیامت را بنویس...",send:"ارسال",
     mvpNotice:"نسخه اولیه: پیام‌ها ذخیره می‌شوند؛ تماس صوتی و تصویری در مرحله بعد اضافه می‌شود.",footer:"فضای خصوصی دوستان",
@@ -9,6 +10,7 @@ const translations = {
   },
   en: {
     privateSpace:"PRIVATE SPACE",welcome:"Welcome to your private space",authHint:"Enter your details to sign in or create an account.",
+    invitationCode:"Invitation code",setupToken:"Owner setup key",inviteHint:"A valid invitation is required to create an account.",setupHint:"Initial setup: enter the secure owner key.",invitationInvalid:"The invitation is invalid, expired, or already used.",setupInvalid:"The owner setup key is incorrect.",ownerSetupDisabled:"Owner setup is not enabled on the server.",invitationManagement:"Invitation management",createInvitation:"Create invitation",invitationCreated:"Invitation code (shown only once):",copyCode:"Copy code",invitationActive:"Active",invitationUsed:"Used",invitationExpired:"Expired",invitationRevoked:"Revoked",revokeInvitation:"Revoke",invitationCapacity:"There is not enough remaining account capacity for another invitation.",
     username:"Username",password:"Password",login:"Sign in",register:"Create account",firstAccount:"The first account created becomes the owner.",
     community:"PRIVATE COMMUNITY",mainRoom:"Main chat",logout:"Log out",messagePlaceholder:"Write a message...",send:"Send",
     mvpNotice:"First version: messages are saved. Voice and video calling will be added in the next stage.",footer:"A private space for friends",
@@ -19,6 +21,7 @@ const translations = {
 let language = "fa";
 let currentUser = null;
 let socket = null;
+let ownerSetupMode = false;
 const $ = (id) => document.getElementById(id);
 
 function setLanguage(next) {
@@ -36,7 +39,7 @@ function setLanguage(next) {
 }
 
 function errorText(code) {
-  const map = { INVALID_CREDENTIALS:"invalid", USERNAME_TAKEN:"taken", USER_LIMIT:"limit", PASSWORD_RULES:"passwordRules", USERNAME_RULES:"usernameRules", CURRENT_PASSWORD_INVALID:"currentPasswordInvalid", REQUEST_ALREADY_PENDING:"requestPending", SAME_USERNAME:"sameUsername" };
+  const map = { INVALID_CREDENTIALS:"invalid", USERNAME_TAKEN:"taken", USER_LIMIT:"limit", PASSWORD_RULES:"passwordRules", USERNAME_RULES:"usernameRules", CURRENT_PASSWORD_INVALID:"currentPasswordInvalid", REQUEST_ALREADY_PENDING:"requestPending", SAME_USERNAME:"sameUsername", INVITATION_INVALID:"invitationInvalid", INVALID_SETUP_TOKEN:"setupInvalid", OWNER_SETUP_DISABLED:"ownerSetupDisabled", INVITATION_CAPACITY_REACHED:"invitationCapacity" };
   return translations[language][map[code] || "network"];
 }
 
@@ -57,7 +60,8 @@ function showChat(user) {
   $("chatPanel").hidden = false;
   $("currentUser").textContent = user.username + " · " + user.role;
   $("ownerRequestsPanel").hidden = user.role !== "owner";
-  if (user.role === "owner") loadOwnerRequests();
+  $("ownerInvitationsPanel").hidden = user.role !== "owner";
+  if (user.role === "owner") { loadOwnerRequests(); loadOwnerInvitations(); }
   loadMessages();
   connectSocket();
 }
@@ -117,8 +121,35 @@ async function authenticate(mode) {
   const username = $("username").value.trim();
   const password = $("password").value;
   try {
-    const data = await api("/api/" + mode, { method:"POST", body:JSON.stringify({ username, password }) });
+    const payload = { username, password };
+    let endpoint = "/api/login";
+    if (mode === "register") {
+      if (ownerSetupMode) {
+        endpoint = "/api/setup";
+        payload.setupToken = $("setupToken").value;
+      } else {
+        endpoint = "/api/register";
+        payload.invitationCode = $("invitationCode").value.trim();
+      }
+    }
+    const data = await api(endpoint, { method:"POST", body:JSON.stringify(payload) });
     showChat(data.user);
+  } catch (error) {
+    $("authError").textContent = errorText(error.message);
+  }
+}
+
+async function configureRegistration() {
+  try {
+    const status = await api("/api/status");
+    ownerSetupMode = Boolean(status.needsOwnerSetup);
+    $("setupField").hidden = !ownerSetupMode;
+    $("invitationField").hidden = ownerSetupMode;
+    $("registrationHint").textContent = translations[language][ownerSetupMode ? "setupHint" : "inviteHint"];
+    if (ownerSetupMode && !status.ownerSetupAvailable) {
+      $("registerButton").disabled = true;
+      $("authError").textContent = translations[language].ownerSetupDisabled;
+    }
   } catch (error) {
     $("authError").textContent = errorText(error.message);
   }
@@ -159,6 +190,50 @@ $("accountChangeForm").addEventListener("submit", async (event) => {
     $("changeStatus").textContent = error.message === "REQUEST_ALREADY_PENDING" ? translations[language].requestPending : errorText(error.message);
   }
 });
+async function loadOwnerInvitations() {
+  try {
+    const { invitations } = await api("/api/invitations");
+    const root = $("ownerInvitations");
+    root.replaceChildren();
+    invitations.forEach((invitation) => {
+      const item = document.createElement("div");
+      item.className = "request-item";
+      const label = document.createElement("span");
+      const statusKey = invitation.status === "active" ? "invitationActive" :
+        invitation.status === "used" ? "invitationUsed" :
+        invitation.status === "expired" ? "invitationExpired" : "invitationRevoked";
+      label.textContent = "#" + invitation.id + " · " + translations[language][statusKey] +
+        " · " + new Date(invitation.expiresAt).toLocaleString(language === "fa" ? "fa-IR" : "en");
+      item.append(label);
+      if (invitation.status === "active") {
+        const revoke = document.createElement("button");
+        revoke.className = "quiet-button";
+        revoke.textContent = translations[language].revokeInvitation;
+        revoke.addEventListener("click", async () => {
+          try {
+            await api("/api/invitations/" + invitation.id, { method:"DELETE" });
+            await loadOwnerInvitations();
+          } catch (error) { $("newInvitationCode").textContent = errorText(error.message); }
+        });
+        item.append(revoke);
+      }
+      root.append(item);
+    });
+    if (!invitations.length) root.textContent = "—";
+  } catch (error) { console.error(error); }
+}
+
+$("createInvitationButton").addEventListener("click", async () => {
+  $("newInvitationCode").textContent = "";
+  try {
+    const { invitation } = await api("/api/invitations", { method:"POST", body:JSON.stringify({}) });
+    $("newInvitationCode").textContent = translations[language].invitationCreated + " " + invitation.code;
+    await loadOwnerInvitations();
+  } catch (error) {
+    $("newInvitationCode").textContent = errorText(error.message);
+  }
+});
+
 async function loadOwnerRequests() {
   try {
     const { requests } = await api("/api/account-change-requests");
@@ -190,4 +265,5 @@ $("messageForm").addEventListener("submit", (event) => {
 });
 
 setLanguage("fa");
+configureRegistration();
 api("/api/me").then(({ user }) => showChat(user)).catch(() => {});
