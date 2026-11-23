@@ -27,7 +27,7 @@ let localStream = null;
 let audioEnabled = false;
 let videoEnabled = false;
 let audioBlockedByHost = false;
-let videoBlockedByHost = false;\nlet audioBlockedByHost = false;\nlet videoBlockedByHost = false;
+let videoBlockedByHost = false;
 const peerConnections = new Map();
 const remoteTiles = new Map();
 const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
