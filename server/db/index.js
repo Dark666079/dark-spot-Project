@@ -30,7 +30,8 @@ db.exec(`
     user_id INTEGER NOT NULL REFERENCES users(id),
     username TEXT NOT NULL,
     body TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    edited_at TEXT
   );
   CREATE TABLE IF NOT EXISTS account_change_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,6 +58,11 @@ db.exec(`
     revoked_at TEXT
   );
 `);
+
+const messageColumns = db.prepare("PRAGMA table_info(messages)").all();
+if (!messageColumns.some((column) => column.name === "edited_at")) {
+  db.exec("ALTER TABLE messages ADD COLUMN edited_at TEXT");
+}
 
 const userColumns = db.prepare("PRAGMA table_info(users)").all();
 if (!userColumns.some((column) => column.name === "auth_version")) {
