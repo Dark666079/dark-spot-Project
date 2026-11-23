@@ -117,6 +117,14 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(badCurrentPassword.status, 401);
 
+  const duplicateRegisteredUsername = await request("/api/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "OWNER_TEST", password: "another-password-123" })
+  });
+  assert.equal(duplicateRegisteredUsername.status, 409);
+  assert.equal((await duplicateRegisteredUsername.json()).error, "USERNAME_TAKEN");
+
   const usernameChangeRequest = await request("/api/account-change-requests", {
     method: "POST",
     headers: { cookie: memberCookie, "content-type": "application/json" },
@@ -124,6 +132,13 @@ test("MVP HTTP auth, owner permissions, and persistent realtime chat", async (t)
   });
   assert.equal(usernameChangeRequest.status, 201);
   const usernameRequestId = (await usernameChangeRequest.json()).requestId;
+  const competingUsernameRequest = await request("/api/account-change-requests", {
+    method: "POST",
+    headers: { cookie: ownerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ type: "username", currentPassword: "owner-password-123", newUsername: "MEMBER_RENAMED" })
+  });
+  assert.equal(competingUsernameRequest.status, 409);
+  assert.equal((await competingUsernameRequest.json()).error, "USERNAME_TAKEN");
   const duplicatePendingRequest = await request("/api/account-change-requests", {
     method: "POST",
     headers: { cookie: memberCookie, "content-type": "application/json" },
