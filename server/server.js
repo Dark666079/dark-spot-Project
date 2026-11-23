@@ -352,22 +352,33 @@ app.patch("/api/account-change-requests/:id", requireAuth, requireOwner, (req, r
 });
 
 app.post("/api/invitations", requireAuth, requireOwner, (_req, res) => {
-  const now = nowIso();
-  const userCount = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
-  const activeInvites = db.prepare(
-    "SELECT COUNT(*) AS count FROM invitations WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at > ?"
-  ).get(now).count;
-  if (userCount + activeInvites >= MAX_USERS) return res.status(409).json({ error: "INVITATION_CAPACITY_REACHED" });
-
   const code = crypto.randomBytes(32).toString("base64url");
   const createdAt = new Date();
   const expiresAt = new Date(createdAt.getTime() + 4 * 24 * 60 * 60 * 1000);
-  const result = db.prepare(
-    "INSERT INTO invitations (token_hash, created_by, created_at, expires_at) VALUES (?, ?, ?, ?)"
-  ).run(hashInvitation(code), _req.session.user.id, createdAt.toISOString(), expiresAt.toISOString());
+  let invitationId;
+  try {
+    invitationId = db.transaction(() => {
+      const userCount = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
+      const activeInvites = db.prepare(
+        "SELECT COUNT(*) AS count FROM invitations WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at > ?"
+      ).get(createdAt.toISOString()).count;
+      if (userCount + activeInvites >= MAX_USERS) {
+        const error = new Error("INVITATION_CAPACITY_REACHED");
+        error.code = "INVITATION_CAPACITY_REACHED";
+        throw error;
+      }
+      const result = db.prepare(
+        "INSERT INTO invitations (token_hash, created_by, created_at, expires_at) VALUES (?, ?, ?, ?)"
+      ).run(hashInvitation(code), _req.session.user.id, createdAt.toISOString(), expiresAt.toISOString());
+      return Number(result.lastInsertRowid);
+    }).immediate();
+  } catch (error) {
+    if (error.code === "INVITATION_CAPACITY_REACHED") return res.status(409).json({ error: "INVITATION_CAPACITY_REACHED" });
+    throw error;
+  }
   res.status(201).json({
     invitation: {
-      id: Number(result.lastInsertRowid),
+      id: invitationId,
       code,
       createdAt: createdAt.toISOString(),
       expiresAt: expiresAt.toISOString()
