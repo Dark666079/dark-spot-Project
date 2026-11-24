@@ -16,7 +16,7 @@ Private messaging and video calling platform for a small group of friends.
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - npm
 
 ## Run locally
