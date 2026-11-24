@@ -56,3 +56,144 @@ body[dir="ltr"] .message{align-self:flex-start}
 .message-actions button{font-size:11px;padding:5px 9px}
 .message-edited{display:block;color:var(--muted);font-size:10px;margin-top:4px}
 .danger-button{border-color:#8b3434;color:#e28a8a}
+
+
+/* Original Dark Spot login artwork: keep the uploaded image untouched. */
+body:has(#authPanel:not([hidden])) {
+  background: #000 url("/file.jpg") center center / cover no-repeat fixed;
+}
+body:has(#authPanel:not([hidden])) .shell {
+  width: 100%;
+  min-height: 100svh;
+  display: block;
+}
+body:has(#authPanel:not([hidden])) .topbar,
+body:has(#authPanel:not([hidden])) footer {
+  display: none;
+}
+body:has(#authPanel:not([hidden])) .auth-panel {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  min-height: 560px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+body:has(#authPanel:not([hidden])) .auth-panel > .eyebrow,
+body:has(#authPanel:not([hidden])) .auth-panel > h1,
+body:has(#authPanel:not([hidden])) .auth-panel > .muted,
+body:has(#authPanel:not([hidden])) .auth-panel > .hint {
+  display: none;
+}
+body:has(#authPanel:not([hidden])) #authForm {
+  position: static;
+  display: block;
+  margin: 0;
+}
+body:has(#authPanel:not([hidden])) #authForm > label {
+  display: none;
+}
+body:has(#authPanel:not([hidden])) #username,
+body:has(#authPanel:not([hidden])) #password {
+  position: absolute;
+  left: 34%;
+  width: 32%;
+  height: 7.2%;
+  padding: 0 5.5%;
+  border: 0;
+  border-radius: 8px;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #f5e9eb;
+  font-size: clamp(12px, 1.1vw, 16px);
+}
+body:has(#authPanel:not([hidden])) #username { top: 44.8%; }
+body:has(#authPanel:not([hidden])) #password { top: 54.1%; }
+body:has(#authPanel:not([hidden])) #username:focus,
+body:has(#authPanel:not([hidden])) #password:focus {
+  border: 1px solid #9d1728aa;
+  box-shadow: 0 0 12px #9d172855;
+}
+body:has(#authPanel:not([hidden])) .actions {
+  display: contents;
+}
+body:has(#authPanel:not([hidden])) #loginButton {
+  position: absolute;
+  left: 34%;
+  top: 64.1%;
+  width: 32%;
+  height: 7.1%;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: transparent;
+  box-shadow: none;
+}
+body:has(#authPanel:not([hidden])) #registerButton {
+  position: absolute;
+  left: 35%;
+  top: 76.1%;
+  width: 17%;
+  height: 5.5%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  box-shadow: none;
+}
+body:has(#authPanel:not([hidden])) #invitationField,
+body:has(#authPanel:not([hidden])) #setupField {
+  position: absolute;
+  top: 85%;
+  left: 25%;
+  width: 50%;
+  color: #c9b7bc;
+  font-size: 11px;
+}
+body:has(#authPanel:not([hidden])) #invitationField input,
+body:has(#authPanel:not([hidden])) #setupField input {
+  height: 34px;
+  padding: 5px 10px;
+  background: #090307dd;
+  border: 1px solid #6f1725;
+  border-radius: 7px;
+  font-size: 12px;
+}
+body:has(#authPanel:not([hidden])) #authError {
+  position: absolute;
+  left: 20%;
+  bottom: 1%;
+  width: 60%;
+  text-align: center;
+  font-size: 12px;
+  text-shadow: 0 1px 5px #000;
+}
+@media (max-width: 600px) {
+  body:has(#authPanel:not([hidden])) #username,
+  body:has(#authPanel:not([hidden])) #password {
+    left: 14%;
+    width: 72%;
+    padding-inline: 12%;
+    font-size: 13px;
+  }
+  body:has(#authPanel:not([hidden])) #loginButton {
+    left: 14%;
+    width: 72%;
+  }
+  body:has(#authPanel:not([hidden])) #registerButton {
+    left: 14%;
+    width: 34%;
+  }
+  body:has(#authPanel:not([hidden])) #invitationField,
+  body:has(#authPanel:not([hidden])) #setupField {
+    left: 14%;
+    width: 72%;
+  }
+}
