@@ -382,23 +382,6 @@ function renderHostControls(tile, userId) {
   tile.audioControl.textContent = callText(tile.audioBlockedByHost ? "hostUnmuteAudio" : "hostMuteAudio");
   tile.videoControl.textContent = callText(tile.videoBlockedByHost ? "hostEnableVideo" : "hostDisableVideo");
 }
-function renderHostControls(tile, userId) {
-  if (currentUser?.role !== "owner") return;
-  if (!tile.hostControls) {
-    tile.hostControls = document.createElement("div");
-    tile.hostControls.className = "host-media-controls";
-    tile.audioControl = document.createElement("button");
-    tile.videoControl = document.createElement("button");
-    tile.audioControl.type = tile.videoControl.type = "button";
-    tile.audioControl.className = tile.videoControl.className = "quiet-button";
-    tile.hostControls.append(tile.audioControl, tile.videoControl);
-    tile.root.append(tile.hostControls);
-    tile.audioControl.addEventListener("click", () => socket.emit("call:moderate-media", { targetUserId: userId, kind: "audio", blocked: !tile.audioBlockedByHost }));
-    tile.videoControl.addEventListener("click", () => socket.emit("call:moderate-media", { targetUserId: userId, kind: "video", blocked: !tile.videoBlockedByHost }));
-  }
-  tile.audioControl.textContent = callText(tile.audioBlockedByHost ? "hostUnmuteAudio" : "hostMuteAudio");
-  tile.videoControl.textContent = callText(tile.videoBlockedByHost ? "hostEnableVideo" : "hostDisableVideo");
-}
 function ensureTile(userId, username, participant = {}) {
   let tile = remoteTiles.get(userId);
   if (tile) return tile;
@@ -424,7 +407,7 @@ function ensurePeer(participant) {
   if (!inCall || participant.userId === currentUser.id || peerConnections.has(participant.userId)) return peerConnections.get(participant.userId);
   const peerId = participant.userId;
   const pc = new RTCPeerConnection({ iceServers });
-  const state = { pc, makingOffer: false, ignoreOffer: false, polite: currentUser.id > peerId };
+  const state = { pc, makingOffer: false, ignoreOffer: false, polite: currentUser.id > peerId, pendingCandidates: [] };
   peerConnections.set(peerId, state);
   if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
   const tile = ensureTile(peerId, participant.username, participant);
@@ -433,7 +416,11 @@ function ensurePeer(participant) {
     if (stream) {
       tile.video.srcObject = stream;
       tile.placeholder.hidden = true;
+      tile.video.play().catch(() => {});
     }
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === "failed" || pc.connectionState === "closed") closePeer(peerId);
   };
   pc.onicecandidate = (event) => {
     if (event.candidate && socket?.connected) socket.emit("call:signal", { targetUserId: peerId, signal: { candidate: event.candidate } });
@@ -463,11 +450,22 @@ async function handleSignal(fromUserId, signal) {
       state.isSettingRemoteAnswerPending = description.type === "answer";
       await pc.setRemoteDescription(description);
       state.isSettingRemoteAnswerPending = false;
+      if (state.pendingCandidates.length) {
+        const queued = state.pendingCandidates.splice(0);
+        for (const candidate of queued) {
+          try { await pc.addIceCandidate(candidate); }
+          catch (error) { if (!state.ignoreOffer) throw error; }
+        }
+      }
       if (description.type === "offer") {
         await pc.setLocalDescription();
         socket.emit("call:signal", { targetUserId: fromUserId, signal: { description: pc.localDescription } });
       }
     } else if (signal.candidate) {
+      if (!pc.remoteDescription) {
+        if (state.pendingCandidates.length < 64) state.pendingCandidates.push(signal.candidate);
+        return;
+      }
       try { await pc.addIceCandidate(signal.candidate); }
       catch (error) { if (!state.ignoreOffer) throw error; }
     }
