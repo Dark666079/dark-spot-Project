@@ -60,7 +60,7 @@ body[dir="ltr"] .message{align-self:flex-start}
 
 /* Original Dark Spot login artwork: keep the uploaded image untouched. */
 body:has(#authPanel:not([hidden])) {
-  background: #000 url("/file.jpg") center center / cover no-repeat fixed;
+  background: #000 url("/IMG_20261125_032835_749.jpg") center center / cover no-repeat fixed;
 }
 body:has(#authPanel:not([hidden])) .shell {
   width: 100%;
@@ -226,7 +226,7 @@ body:has(#authPanel:not([hidden])) .auth-panel {
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: #000 url("/file.jpg") center / 100% 100% no-repeat;
+  background: #000 url("/IMG_20261125_032835_749.jpg") center / 100% 100% no-repeat;
   box-shadow: none;
 }
 body:has(#authPanel:not([hidden])) #username,
@@ -282,5 +282,51 @@ body:has(#authPanel:not([hidden])) #setupField {
   body:has(#authPanel:not([hidden])) #setupField {
     left: 25%;
     width: 50%;
+  }
+}
+
+
+/* Final alignment for the 1280x720 original login artwork. */
+body:has(#authPanel:not([hidden])) #username,
+body:has(#authPanel:not([hidden])) #password {
+  left: 33.75%;
+  width: 32.5%;
+  height: 7.25%;
+  direction: ltr;
+  text-align: left;
+  padding-left: 21%;
+  padding-right: 7%;
+  font-size: clamp(10px, 1.05vw, 15px);
+}
+body:has(#authPanel:not([hidden])) #username { top: 44.85%; }
+body:has(#authPanel:not([hidden])) #password { top: 54.15%; }
+body:has(#authPanel:not([hidden])) #loginButton {
+  left: 34%;
+  top: 64.05%;
+  width: 32%;
+  height: 6.9%;
+}
+body:has(#authPanel:not([hidden])) #registerButton {
+  left: 36.5%;
+  top: 75.9%;
+  width: 10%;
+  height: 4%;
+}
+@media (max-width: 600px) {
+  body:has(#authPanel:not([hidden])) #username,
+  body:has(#authPanel:not([hidden])) #password {
+    left: 33.75%;
+    width: 32.5%;
+    padding-left: 21%;
+    padding-right: 7%;
+    font-size: 8px;
+  }
+  body:has(#authPanel:not([hidden])) #loginButton {
+    left: 34%;
+    width: 32%;
+  }
+  body:has(#authPanel:not([hidden])) #registerButton {
+    left: 36.5%;
+    width: 10%;
   }
 }
