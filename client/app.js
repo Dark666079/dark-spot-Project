@@ -420,7 +420,13 @@ function ensurePeer(participant) {
     }
   };
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === "failed" || pc.connectionState === "closed") closePeer(peerId);
+    if (pc.connectionState === "failed" && !state.iceRestartAttempted) {
+      state.iceRestartAttempted = true;
+      try { pc.restartIce(); }
+      catch (error) { console.warn("ICE restart failed", error); closePeer(peerId); }
+    } else if (pc.connectionState === "closed") {
+      closePeer(peerId);
+    }
   };
   pc.onicecandidate = (event) => {
     if (event.candidate && socket?.connected) socket.emit("call:signal", { targetUserId: peerId, signal: { candidate: event.candidate } });
@@ -446,7 +452,10 @@ async function handleSignal(fromUserId, signal) {
       const readyForOffer = !state.makingOffer && (pc.signalingState === "stable" || state.isSettingRemoteAnswerPending);
       const offerCollision = description.type === "offer" && !readyForOffer;
       state.ignoreOffer = !state.polite && offerCollision;
-      if (state.ignoreOffer) return;
+      if (state.ignoreOffer) {
+        state.pendingCandidates.length = 0;
+        return;
+      }
       state.isSettingRemoteAnswerPending = description.type === "answer";
       await pc.setRemoteDescription(description);
       state.isSettingRemoteAnswerPending = false;
