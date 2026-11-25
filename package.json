@@ -1,0 +1,12 @@
+{
+  "name": "dark-spot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dark Spot local server bootstrap",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
