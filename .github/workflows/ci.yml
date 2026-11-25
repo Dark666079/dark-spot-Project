@@ -23,7 +23,7 @@ jobs:
       - name: Check JavaScript syntax
         run: npm run check
       - name: Create temporary test environment
-        run: node -e "const fs=require('node:fs');const c=require('node:crypto');fs.writeFileSync('.env','SESSION_SECRET='+c.randomBytes(48).toString('hex')+'\\nOWNER_SETUP_TOKEN='+c.randomBytes(48).toString('hex')+'\\n',{flag:'w'})"
+        run: node -e "const fs=require('node:fs');const c=require('node:crypto');const nl=String.fromCharCode(10);fs.writeFileSync('.env','SESSION_SECRET='+c.randomBytes(48).toString('hex')+nl+'OWNER_SETUP_TOKEN='+c.randomBytes(48).toString('hex')+nl)"
 
       - name: Run MVP integration tests
         run: npm test
