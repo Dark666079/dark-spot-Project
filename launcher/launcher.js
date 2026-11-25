@@ -89,7 +89,7 @@ setInterval(refresh,2000);
 </script></body></html>`;
 
 function status() {
-  const running = Boolean(child && child.exitCode === null);
+  const running = Boolean(child && child.exitCode === null && child.signalCode === null);
   return { running, starting: Boolean(startPromise), stopping, pid: running ? child.pid : null, lastExit };
 }
 
@@ -104,9 +104,11 @@ function startServer() {
     lastExit = null;
     stopping = false;
     let settled = false;
+    let startupTimer = null;
     const finish = (result) => {
       if (settled) return;
       settled = true;
+      if (startupTimer) clearTimeout(startupTimer);
       resolve(result);
     };
 
@@ -125,6 +127,9 @@ function startServer() {
     processChild.stdout.on("data", (chunk) => {
       childOutput = (childOutput + chunk.toString()).slice(-12000);
       process.stdout.write(chunk);
+      if (/Dark-Spot server listening on http:\/\/localhost:\d+/.test(childOutput)) {
+        finish({ ok: true, started: true, message: "سرور با موفقیت روشن شد و آماده دریافت اتصال است." });
+      }
     });
     processChild.stderr.on("data", (chunk) => {
       childOutput = (childOutput + chunk.toString()).slice(-12000);
@@ -145,10 +150,16 @@ function startServer() {
       }
     });
     processChild.once("spawn", () => {
-      setTimeout(() => {
-        if (child !== processChild || processChild.exitCode !== null) return;
-        finish({ ok: true, started: true, message: "فرایند سرور اجرا شد. وضعیت در پنل به‌روزرسانی می‌شود." });
-      }, 900);
+      startupTimer = setTimeout(() => {
+        const detail = childOutput.trim().slice(-1800);
+        processChild.kill("SIGTERM");
+        finish({
+          ok: false,
+          started: false,
+          message: "سرور در مهلت تعیین‌شده آماده نشد." + (detail ? "\\n" + detail : "")
+        });
+      }, 15000);
+      startupTimer.unref();
     });
   }).finally(() => {
     startPromise = null;
