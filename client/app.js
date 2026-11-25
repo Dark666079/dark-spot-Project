@@ -536,6 +536,14 @@ async function setMedia(kind, enabled) {
     $("callStatus").textContent = callText("mediaDenied");
   }
 }
+$("togglePassword").addEventListener("click", () => {
+  const password = $("password");
+  const reveal = password.type === "password";
+  password.type = reveal ? "text" : "password";
+  $("togglePassword").setAttribute("aria-pressed", String(reveal));
+  $("togglePassword").setAttribute("aria-label", reveal ? "پنهان‌کردن رمز عبور" : "نمایش رمز عبور");
+  $("togglePassword").title = reveal ? "پنهان‌کردن رمز عبور" : "نمایش رمز عبور";
+});
 $("joinCallButton").addEventListener("click", joinCall);
 $("leaveCallButton").addEventListener("click", leaveCall);
 $("audioButton").addEventListener("click", () => setMedia("audio", !audioEnabled));
