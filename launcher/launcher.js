@@ -19,7 +19,7 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
   throw new Error("LAUNCHER_PORT must be a valid TCP port.");
 }
 
-const page = () => \`<!doctype html>
+const page = () => `<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -47,7 +47,7 @@ footer{margin-top:17px;color:#8490a4;font-size:11px;line-height:1.8}
 </main>
 <script>
 "use strict";
-const key=\${JSON.stringify(token)};
+const key=${JSON.stringify(token)};
 const startButton=document.getElementById("start");
 const stopButton=document.getElementById("stop");
 const message=document.getElementById("message");
@@ -86,7 +86,7 @@ startButton.addEventListener("click",()=>act("start"));
 stopButton.addEventListener("click",()=>act("stop"));
 refresh();
 setInterval(refresh,2000);
-</script></body></html>\`;
+</script></body></html>`;
 
 function status() {
   const running = Boolean(child && child.exitCode === null);
@@ -114,7 +114,7 @@ function startServer() {
       cwd: ROOT,
       env: {
         ...process.env,
-        DARKSPOT_LAUNCHER_URL: \`http://\${HOST}:\${PORT}\`,
+        DARKSPOT_LAUNCHER_URL: `http://${HOST}:${PORT}`,
         DARKSPOT_LAUNCHER_TOKEN: token
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -210,7 +210,7 @@ function authorized(req) {
 
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin;
-  if (origin && origin !== \`http://\${HOST}:\${PORT}\`) {
+  if (origin && origin !== `http://${HOST}:${PORT}`) {
     return send(res, 403, { error: "ORIGIN_FORBIDDEN" });
   }
 
@@ -248,7 +248,7 @@ server.on("error", (error) => {
   process.exitCode = 1;
 });
 server.listen(PORT, HOST, () => {
-  console.log(\`Dark-Spot control panel: http://\${HOST}:\${PORT}\`);
+  console.log(`Dark-Spot control panel: http://${HOST}:${PORT}`);
 });
 
 let closing = false;
