@@ -1,3 +1,5 @@
+require("node:process").loadEnvFile(require("node:path").join(__dirname, "..", ".env"));
+
 const crypto = require("node:crypto");
 const http = require("node:http");
 const express = require("express");
