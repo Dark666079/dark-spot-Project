@@ -42,7 +42,7 @@ if not exist "node_modules\express\package.json" (
 )
 
 echo Opening the local control page...
-start "" cmd /c "timeout /t 2 /nobreak ^>nul ^& start http://127.0.0.1:4317"
+start "" cmd /c "ping 127.0.0.1 -n 3 >nul & start http://127.0.0.1:4317"
 call npm run launcher
 
 echo.
