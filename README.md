@@ -69,3 +69,10 @@ Keep the launcher window open while the server is running. Closing the launcher 
 For manual use on Windows, macOS, or Linux, install dependencies, create a private `.env` containing separate random values for `SESSION_SECRET` and `OWNER_SETUP_TOKEN`, then run `npm run launcher`. Opening `npm start` directly bypasses the control panel and owner-logout shutdown behavior.
 
 **Important:** do not upload `.env` to GitHub or share its contents. The control panel is a local process controller, not a packaged desktop installer. Before public hosting, HTTPS/tunnel configuration and additional security testing are still required.
+
+## Packaged Windows control app
+
+A Windows desktop wrapper is available under `launcher/windows`. The Windows GitHub Actions workflow builds a portable folder containing `Dark-Spot-Control.exe`, the local launcher, server files, and the installed Node dependencies. Download the `Dark-Spot-Control-Windows-x64` artifact from the latest successful **Build Dark Spot Windows Control App** run in the repository's Actions tab, extract it, and double-click `Dark-Spot-Control.exe`.
+
+Requirements: Windows 10/11 x64, Node.js 22 or newer, and the Microsoft Edge WebView2 Runtime. Keep the extracted folder together; do not move the EXE away from its accompanying folders. The app creates a private `.env` file on first launch and requests the launcher to stop the server when the app closes. This is a portable desktop control app, not a standalone server installer.
+
