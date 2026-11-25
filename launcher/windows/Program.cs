@@ -94,13 +94,40 @@ internal sealed class ControlForm : Form
     private static void EnsurePrivateEnv(string root)
     {
         var envPath = Path.Combine(root, ".env");
-        if (File.Exists(envPath)) return;
-        var session = Convert.ToHexString(RandomNumberGenerator.GetBytes(48)).ToLowerInvariant();
-        var owner = Convert.ToHexString(RandomNumberGenerator.GetBytes(48)).ToLowerInvariant();
-        var content = $"SESSION_SECRET={session}{Environment.NewLine}OWNER_SETUP_TOKEN={owner}{Environment.NewLine}";
-        using var stream = new FileStream(envPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        var bytes = new UTF8Encoding(false).GetBytes(content);
-        stream.Write(bytes);
+        var keyPath = Path.Combine(root, "OWNER-SETUP-KEY.txt");
+        var lines = File.Exists(envPath)
+            ? File.ReadAllLines(envPath, Encoding.UTF8).ToList()
+            : new List<string>();
+
+        string? ReadValue(string name)
+        {
+            var prefix = name + "=";
+            var line = lines.LastOrDefault(value => value.StartsWith(prefix, StringComparison.Ordinal));
+            return line is null ? null : line[prefix.Length..].Trim();
+        }
+
+        var session = ReadValue("SESSION_SECRET");
+        if (string.IsNullOrWhiteSpace(session) || session.Length < 32)
+        {
+            session = Convert.ToHexString(RandomNumberGenerator.GetBytes(48)).ToLowerInvariant();
+            lines.RemoveAll(value => value.StartsWith("SESSION_SECRET=", StringComparison.Ordinal));
+            lines.Add("SESSION_SECRET=" + session);
+        }
+
+        var owner = ReadValue("OWNER_SETUP_TOKEN");
+        if (string.IsNullOrWhiteSpace(owner) || owner.Length < 32)
+        {
+            owner = Convert.ToHexString(RandomNumberGenerator.GetBytes(48)).ToLowerInvariant();
+            lines.RemoveAll(value => value.StartsWith("OWNER_SETUP_TOKEN=", StringComparison.Ordinal));
+            lines.Add("OWNER_SETUP_TOKEN=" + owner);
+        }
+
+        File.WriteAllText(envPath, string.Join(Environment.NewLine, lines) + Environment.NewLine, new UTF8Encoding(false));
+        File.WriteAllText(keyPath,
+            "کلید راه‌اندازی اولیه مالک Dark Spot\r\n" +
+            "این کلید را در صفحه ساخت اولین حساب وارد کن. پس از ساخته‌شدن مالک، دیگر قابل استفاده نیست.\r\n\r\n" +
+            owner + "\r\n",
+            new UTF8Encoding(false));
     }
 
     private static void CheckNodeVersion()
