@@ -24,3 +24,44 @@ jobs:
         run: npm run check
       - name: Run MVP integration tests
         run: npm test
+
+  windows-app:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish Windows desktop app
+        run: dotnet publish launcher/windows/DarkSpotControl.csproj -c Release -r win-x64 --self-contained true -o publish
+
+      - name: Assemble portable app folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force bundle | Out-Null
+          Copy-Item publish/* bundle/ -Recurse -Force
+          Copy-Item launcher bundle/launcher -Recurse -Force
+          Copy-Item server bundle/server -Recurse -Force
+          Copy-Item client bundle/client -Recurse -Force
+          Copy-Item node_modules bundle/node_modules -Recurse -Force
+          Copy-Item package.json bundle/package.json -Force
+
+      - name: Upload Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dark-Spot-Control-Windows-x64
+          path: bundle/
+          if-no-files-found: error
+          retention-days: 30
