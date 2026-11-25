@@ -111,5 +111,5 @@ test("local launcher starts, reports, and stops its server securely", async (t) 
     return !(await response.json()).running;
   });
 
-  await assert.rejects(() => fetch(appBase + "/api/status"), "server should no longer accept connections");
+  await assert.rejects(() => fetch(appBase + "/api/status"));
 });
