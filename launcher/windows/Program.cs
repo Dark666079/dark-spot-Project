@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.ComponentModel;
+using System.Text.Json;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -24,6 +26,8 @@ internal sealed class ControlForm : Form
     private Process? launcher;
     private string? projectRoot;
     private bool ownsLauncher;
+    private bool allowClose;
+    private bool closeStarted;
 
     public ControlForm()
     {
@@ -162,13 +166,39 @@ internal sealed class ControlForm : Form
         throw new InvalidOperationException("پنل کنترل در زمان مقرر اجرا نشد. پورت 4317 را بررسی کنید.", last);
     }
 
-    private void OnClosing(object? sender, FormClosingEventArgs e)
+    private async void OnClosing(object? sender, FormClosingEventArgs e)
     {
-        if (ownsLauncher && launcher is { HasExited: false })
+        if (allowClose) return;
+        e.Cancel = true;
+        if (closeStarted) return;
+        closeStarted = true;
+        message.Text = "در حال خاموش‌کردن ایمن سرور...";
+        try
         {
-            try { launcher.Kill(entireProcessTree: true); }
-            catch { }
+            if (browser.CoreWebView2 is not null)
+            {
+                var tokenJson = await browser.CoreWebView2.ExecuteScriptAsync("key");
+                var token = JsonSerializer.Deserialize<string>(tokenJson);
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(7) };
+                    using var request = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:4317/control/stop");
+                    request.Headers.Add("x-launcher-token", token);
+                    await client.SendAsync(request);
+                }
+            }
         }
-        launcher?.Dispose();
+        catch { }
+        finally
+        {
+            if (ownsLauncher && launcher is { HasExited: false })
+            {
+                try { launcher.Kill(entireProcessTree: true); }
+                catch { }
+            }
+            launcher?.Dispose();
+            allowClose = true;
+            Close();
+        }
     }
 }
