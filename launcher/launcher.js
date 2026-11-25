@@ -156,7 +156,7 @@ function startServer() {
         finish({
           ok: false,
           started: false,
-          message: "سرور در مهلت تعیین‌شده آماده نشد." + (detail ? "\\n" + detail : "")
+          message: "سرور در مهلت تعیین‌شده آماده نشد." + (detail ? "\n" + detail : "")
         });
       }, 15000);
       startupTimer.unref();
