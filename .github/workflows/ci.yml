@@ -54,8 +54,9 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force bundle | Out-Null
+          New-Item -ItemType Directory -Force bundle/launcher | Out-Null
           Copy-Item publish/* bundle/ -Recurse -Force
-          Copy-Item launcher bundle/launcher -Recurse -Force
+          Copy-Item launcher/launcher.js bundle/launcher/launcher.js -Force
           Copy-Item server bundle/server -Recurse -Force
           Copy-Item client bundle/client -Recurse -Force
           Copy-Item node_modules bundle/node_modules -Recurse -Force
